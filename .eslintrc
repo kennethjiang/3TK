@@ -1,0 +1,16 @@
+{
+  "parser": "babel-eslint",
+  "extends": "eslint:recommended",
+  "env": {
+    "node": true,
+    "mocha": true
+  },
+  "globals": {
+    "document": true,
+    "window": true,
+    "TouchEvent": true
+  },
+  "rules": {
+    "no-unused-vars": 0
+  }
+}

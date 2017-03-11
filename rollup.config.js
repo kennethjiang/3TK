@@ -1,6 +1,5 @@
 import babel from 'rollup-plugin-babel';
 import babelrc from 'babelrc-rollup';
-import istanbul from 'rollup-plugin-istanbul';
 
 let pkg = require('./package.json');
 let external = Object.keys(pkg.dependencies);
@@ -9,9 +8,6 @@ export default {
   entry: 'lib/3tk.js',
   plugins: [
     babel(babelrc()),
-    istanbul({
-      exclude: ['test/**/*', 'node_modules/**/*']
-    })
   ],
   external: external,
   targets: [
@@ -19,12 +15,12 @@ export default {
       dest: pkg.main,
       format: 'umd',
       moduleName: 'THREETK',
-      sourceMap: true
+      sourceMap: 'inline'
     },
     {
       dest: pkg.module,
       format: 'es',
-      sourceMap: true
+      sourceMap: 'inline'
     }
   ]
 };

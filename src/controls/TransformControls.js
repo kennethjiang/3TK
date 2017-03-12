@@ -2,7 +2,7 @@
  * @author arodic / https://github.com/arodic
  */
 
-    'use strict';
+'use strict';
 
 import THREE from 'three'
 

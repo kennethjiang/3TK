@@ -1,12 +1,12 @@
 {
-  "name": "3TK",
+  "name": "3tk",
   "version": "0.1.0",
   "description": "Three.js Toolkit",
   "author": "Kenneth Jiang <kenneth.jiang@gmail.com>",
   "license": "MIT",
-  "main": "dist/3TK.js",
-  "module": "dist/3TK.es2015.js",
-  "jsnext:main": "dist/3TK.es2015.js",
+  "main": "dist/3tk.js",
+  "module": "dist/3tk.es2015.js",
+  "jsnext:main": "dist/3tk.es2015.js",
   "scripts": {
     "prebuild": "eslint lib test",
     "build": "rollup -c",
@@ -20,9 +20,9 @@
     "three.js",
     "toolkit"
   ],
-  "repository": "https://github.com/kennethjiang/3TK.git",
+  "repository": "https://github.com/kennethjiang/3tk.git",
   "bugs": {
-    "url": "https://github.com/kennethjiang/3TK/issues"
+    "url": "https://github.com/kennethjiang/3tk/issues"
   },
   "files": [
     "lib",

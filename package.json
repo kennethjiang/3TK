@@ -5,10 +5,10 @@
   "author": "Kenneth Jiang <kenneth.jiang@gmail.com>",
   "license": "MIT",
   "main": "dist/3tk.js",
-  "module": "dist/3tk.es2015.js",
-  "jsnext:main": "dist/3tk.es2015.js",
+  "module": "dist/3tk.module.js",
+  "jsnext:main": "dist/3tk.module.js",
   "scripts": {
-    "prebuild": "eslint lib test",
+    "prebuild": "eslint src test",
     "build": "rollup -c",
     "watch": "rollup -c -w",
     "clean": "rimraf dist && mkdirp dist ",
@@ -25,11 +25,11 @@
     "url": "https://github.com/kennethjiang/3tk/issues"
   },
   "files": [
-    "lib",
+    "src",
     "dist"
   ],
   "dependencies": {
-    "three": "^0.78.0"
+    "three": "^0.84.0"
   },
   "devDependencies": {
     "babel-eslint": "^7.1.1",

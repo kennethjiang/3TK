@@ -5,7 +5,7 @@ let pkg = require('./package.json');
 let external = Object.keys(pkg.dependencies);
 
 export default {
-  entry: 'lib/3tk.js',
+  entry: 'src/3tk.js',
   plugins: [
     babel(babelrc()),
   ],

@@ -33,9 +33,9 @@
                 size: 1
             };
 
-            var options = {
-                dragToTranslate: false,
-                contrainedTo: "XY",
+            var translateController = {
+                drag: false,
+                axis: "XY",
             };
 
 			init();
@@ -62,15 +62,24 @@
                         control.setTranslationSnap( 100 );
                         control.setRotationSnap( THREE.Math.degToRad( 15 ) );
                     } else {
-
                         control.setTranslationSnap( null );
                         control.setRotationSnap( null );
                     }
                 } );
 
-                gui.add( options, "dragToTranslate" ).onChange( function( value ) {
-                        } );
-                gui.add( options, "contrainedTo", [ "X", "Y", "Z", "XY", "XZ", "YZ", "XYZ", "XYZE" ] ).onChange( function( value ) {
+                var f1 = gui.addFolder( "Translate" );
+
+                f1.add( translateController, "drag" ).onChange( function( value ) {
+                    if ( value ) {
+                        control.setHandles( 'translate', null );
+                        control.axis = translateController.axis;
+                    } else {
+                        control.setHandles( 'translate', control.defaultHandles.translateHandles() );
+                    }
+                } );
+
+                f1.add( translateController, "axis", [ "X", "Y", "Z", "XY", "XZ", "YZ", "XYZ", "XYZE" ] ).onChange( function( value ) {
+                    control.axis = value;
                 } );
 
             }

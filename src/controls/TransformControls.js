@@ -262,9 +262,9 @@ function DefaultHandles() {
 
 }
 
-var defaultHandles = new DefaultHandles();
+function TransformGizmo( handles ) {
 
-function TransformGizmo() {
+    this.handles = handles;
 
     this.init = function () {
 
@@ -322,6 +322,16 @@ function TransformGizmo() {
 
     };
 
+    this.setHandles = function ( handles ) {
+
+        this.remove( this.handles );
+        this.handles = handles;
+        if ( this.handles !== null ) {
+            this.add( this.handles );
+        }
+
+    };
+
     this.highlight = function ( axis ) {
 
         this.traverse( function( child ) {
@@ -371,11 +381,9 @@ TransformGizmo.prototype.update = function ( rotation, eye ) {
 
 }
 
-function TransformGizmoTranslate() {
+function TransformGizmoTranslate( handles ) {
 
-    TransformGizmo.call( this );
-
-    this.handles = defaultHandles.translateHandles();
+    TransformGizmo.call( this, handles );
 
     this.setActivePlane = function ( axis, eye ) {
 
@@ -423,11 +431,9 @@ function TransformGizmoTranslate() {
 TransformGizmoTranslate.prototype = Object.create( TransformGizmo.prototype );
 TransformGizmoTranslate.prototype.constructor = TransformGizmoTranslate;
 
-function TransformGizmoRotate() {
+function TransformGizmoRotate( handles ) {
 
-    TransformGizmo.call( this );
-
-    this.handles = defaultHandles.rotateHandles();
+    TransformGizmo.call( this, handles );
 
     this.setActivePlane = function ( axis ) {
 
@@ -507,11 +513,9 @@ function TransformGizmoRotate() {
 TransformGizmoRotate.prototype = Object.create( TransformGizmo.prototype );
 TransformGizmoRotate.prototype.constructor = TransformGizmoRotate;
 
-function TransformGizmoScale() {
+function TransformGizmoScale( handles ) {
 
-    TransformGizmo.call( this );
-
-    this.handles = defaultHandles.scaleHandles();
+    TransformGizmo.call( this, handles );
 
     this.setActivePlane = function ( axis, eye ) {
 
@@ -559,6 +563,8 @@ function TransformControls( camera, domElement ) {
 
     domElement = ( domElement !== undefined ) ? domElement : document;
 
+    this.defaultHandles = new DefaultHandles();
+
     this.object = undefined;
     this.visible = false;
     this.translationSnap = null;
@@ -566,6 +572,7 @@ function TransformControls( camera, domElement ) {
     this.space = "world";
     this.size = 1;
     this.axis = null;
+    this.dragObject = false;
 
     var scope = this;
 
@@ -573,9 +580,9 @@ function TransformControls( camera, domElement ) {
     var _dragging = false;
     var _plane = "XY";
     var _gizmo = {
-        "translate": new TransformGizmoTranslate(),
-        "rotate": new TransformGizmoRotate(),
-        "scale": new TransformGizmoScale()
+        "translate": new TransformGizmoTranslate( scope.defaultHandles.translateHandles() ),
+        "rotate": new TransformGizmoRotate( scope.defaultHandles.rotateHandles() ),
+        "scale": new TransformGizmoScale( scope.defaultHandles.scaleHandles() )
     };
 
     for ( var type in _gizmo ) {
@@ -729,6 +736,14 @@ function TransformControls( camera, domElement ) {
 
     };
 
+    this.setHandles = function ( mode, handles ) {
+
+        _gizmo[ mode ].setHandles( handles );
+        scope.update();
+        scope.dispatchEvent( changeEvent );
+
+    };
+
     this.update = function () {
 
         if ( scope.object === undefined ) return;
@@ -771,7 +786,7 @@ function TransformControls( camera, domElement ) {
 
     function onPointerHover( event ) {
 
-        if ( scope.object === undefined || _dragging === true || ( event.button !== undefined && event.button !== 0 ) ) return;
+        if ( scope.object === undefined || _dragging === true || _gizmo[ _mode ].handles === null || ( event.button !== undefined && event.button !== 0 ) ) return;
 
         var pointer = event.changedTouches ? event.changedTouches[ 0 ] : event;
 
@@ -805,9 +820,11 @@ function TransformControls( camera, domElement ) {
 
         if ( pointer.button === 0 || pointer.button === undefined ) {
 
-            var intersect = intersectObjects( pointer, _gizmo[ _mode ].handles.children );
+            if ( _gizmo[ _mode ].handles !== null ) {
 
-            if ( intersect ) {
+                var intersect = intersectObjects( pointer, _gizmo[ _mode ].handles.children );
+
+                if ( ! intersect ) return;
 
                 event.preventDefault();
                 event.stopPropagation();
@@ -815,29 +832,30 @@ function TransformControls( camera, domElement ) {
                 scope.dispatchEvent( mouseDownEvent );
 
                 scope.axis = intersect.object.name;
+            }
 
-                scope.update();
+            if ( ! scope.axis ) return ;
 
-                eye.copy( camPosition ).sub( worldPosition ).normalize();
+            scope.update();
 
-                _gizmo[ _mode ].setActivePlane( scope.axis, eye );
+            eye.copy( camPosition ).sub( worldPosition ).normalize();
 
-                var planeIntersect = intersectObjects( pointer, [ _gizmo[ _mode ].activePlane ] );
+            _gizmo[ _mode ].setActivePlane( scope.axis, eye );
 
-                if ( planeIntersect ) {
+            var planeIntersect = intersectObjects( pointer, [ _gizmo[ _mode ].activePlane ] );
 
-                    oldPosition.copy( scope.object.position );
-                    oldScale.copy( scope.object.scale );
+            if ( planeIntersect ) {
 
-                    oldRotationMatrix.extractRotation( scope.object.matrix );
-                    worldRotationMatrix.extractRotation( scope.object.matrixWorld );
+                oldPosition.copy( scope.object.position );
+                oldScale.copy( scope.object.scale );
 
-                    parentRotationMatrix.extractRotation( scope.object.parent.matrixWorld );
-                    parentScale.setFromMatrixScale( tempMatrix.getInverse( scope.object.parent.matrixWorld ) );
+                oldRotationMatrix.extractRotation( scope.object.matrix );
+                worldRotationMatrix.extractRotation( scope.object.matrixWorld );
 
-                    offset.copy( planeIntersect.point );
+                parentRotationMatrix.extractRotation( scope.object.parent.matrixWorld );
+                parentScale.setFromMatrixScale( tempMatrix.getInverse( scope.object.parent.matrixWorld ) );
 
-                }
+                offset.copy( planeIntersect.point );
 
             }
 

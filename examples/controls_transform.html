@@ -29,13 +29,13 @@
             var commonController = {
                 mode: "translate",
                 space: "local",
-                snapToGrid: false,
+                "snap to grid": false,
                 size: 1
             };
 
             var translateController = {
-                drag: false,
-                axis: "XY",
+                "drag object": false,
+                "drag along": "XY",
             };
 
 			init();
@@ -57,7 +57,7 @@
                     control.setSize( value );
                 } );
 
-                gui.add( commonController, "snapToGrid" ).onChange( function( value ) {
+                gui.add( commonController, "snap to grid" ).onChange( function( value ) {
                     if (value) {
                         control.setTranslationSnap( 100 );
                         control.setRotationSnap( THREE.Math.degToRad( 15 ) );
@@ -69,7 +69,7 @@
 
                 var f1 = gui.addFolder( "Translate" );
 
-                f1.add( translateController, "drag" ).onChange( function( value ) {
+                f1.add( translateController, "drag object" ).onChange( function( value ) {
                     if ( value ) {
                         control.setHandles( 'translate', null );
                         control.axis = translateController.axis;
@@ -78,7 +78,7 @@
                     }
                 } );
 
-                f1.add( translateController, "axis", [ "X", "Y", "Z", "XY", "XZ", "YZ", "XYZ", "XYZE" ] ).onChange( function( value ) {
+                f1.add( translateController, "drag along", [ "X", "Y", "Z", "XY", "XZ", "YZ", "XYZ", "XYZE" ] ).onChange( function( value ) {
                     control.axis = value;
                 } );
 

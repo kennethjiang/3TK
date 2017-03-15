@@ -1,11 +1,12 @@
 var files = {
 	"controls": [
-		"controls_transform"
+		"controls_transform",
+		"controls_orbit",
     ],
     "loaders": [
-        "loaders_stl"
+        "loaders_stl",
     ],
     "modifiers": [
-        "modifiers_island-separator"
+        "modifiers_island-separator",
     ],
 };

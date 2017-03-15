@@ -5,4 +5,7 @@ var files = {
     "loaders": [
         "loaders_stl"
     ],
+    "modifiers": [
+        "modifiers_island-separator"
+    ],
 };

@@ -158,7 +158,7 @@ function IslandSeparator( precisionPoints=4 ) {
                     }
 
                     if (originalColors) {
-                        colors.push( originalNormals[faceIndex + i] );
+                        colors.push( originalColors[faceIndex + i] );
                     }
 
                 }

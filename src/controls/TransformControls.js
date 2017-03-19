@@ -357,7 +357,7 @@ function TransformGizmo( handles ) {
 }
 
 TransformGizmo.prototype = Object.create( THREE.Object3D.prototype );
-TransformGizmo.prototype.constructor = THREE.TransformGizmo;
+TransformGizmo.prototype.constructor = TransformGizmo;
 
 TransformGizmo.prototype.update = function ( rotation, eye ) {
 

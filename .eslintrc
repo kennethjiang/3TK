@@ -13,6 +13,7 @@
     "Map": true,
     "DataView": true,
     "Float32Array": true,
+    "ArrayBuffer": true,
     "Uint8Array": true
   },
   "rules": {

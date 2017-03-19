@@ -9,4 +9,7 @@ var files = {
     "modifiers": [
         "modifiers_island-separator",
     ],
+    "exporters": [
+        "exporters_stl-binary",
+    ],
 };

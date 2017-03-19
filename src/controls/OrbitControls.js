@@ -13,7 +13,7 @@
 //    Zoom - middle mouse, or mousewheel / touch: two finger spread or squish
 //    Pan - right mouse, or arrow keys / touch: three finger swipe
 
-import THREE from 'three'
+import * as THREE from 'three'
 
 function OrbitControls( object, domElement ) {
 

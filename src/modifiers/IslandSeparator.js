@@ -6,7 +6,7 @@
  *
  */
 
-import THREE from 'three'
+import * as THREE from 'three'
 
 function VertexNode( posIndex ) {
     var self = this;

@@ -4,7 +4,7 @@
  * @author mudcube / http://mudcu.be/
  */
 
-import THREE from 'three'
+import * as THREE from 'three'
 
 function STLBinaryExporter() {}
 

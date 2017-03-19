@@ -29,7 +29,7 @@
  *  var mesh = new THREE.Mesh( geometry, material );
  */
 
-import THREE from 'three';
+import * as THREE from 'three'
 
 function STLLoader( manager ) {
 

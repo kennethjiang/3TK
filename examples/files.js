@@ -12,4 +12,7 @@ var files = {
     "exporters": [
         "exporters_stl-binary",
     ],
+    "helpers": [
+        "helpers_pointer-interactions",
+    ],
 };

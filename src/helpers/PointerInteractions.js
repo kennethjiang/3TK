@@ -73,8 +73,6 @@ function PointerInteractions( objects, domElement, camera ) {
 
         if (pointerDepressed) return ;
 
-        if (! objectHovered ) return;
-
         var obj = insertedObject(event);
         if ( scope.hoveredObject != obj ) {
             scope.dispatchEvent( { type: 'hover', previous: scope.hoveredObject, current: obj } );
@@ -91,8 +89,6 @@ function PointerInteractions( objects, domElement, camera ) {
         if (lastPointerEvent != "pointerdown") return ; // A click is a pointerdown followed immediately by a pointerup
         lastPointerEvent = "pointerup";
 
-        if (! objectClicked ) return ;
-
         var obj = insertedObject(event);
         if ( scope.clickedObject != obj ) {
             scope.dispatchEvent( { type: 'click', previous: scope.clickedObject, current: obj } );
@@ -106,8 +102,6 @@ function PointerInteractions( objects, domElement, camera ) {
         lastPointerEvent = "pointerout";
 
         if (pointerDepressed) return ;
-
-        if (! objectHovered ) return;
 
         scope.dispatchEvent( { type: 'hover', previous: scope.hoveredObject, current: null } );
 

@@ -38,8 +38,7 @@
 	</head>
 	<body>
         <div id="info" title="Demo Information">
-        This three.js demo adopted from a collection at
-        <a href="http://stemkoski.github.io/Three.js/">http://stemkoski.github.io/Three.js/</a>
+        Hover to turn Object3D yellow. Click to turn red. Click anywhere else to clear.
         </div>
 
 		<script src="/node_modules/three/build/three.js"></script>
@@ -133,7 +132,9 @@
             // Selector //
             //////////////
 
-            selector = new THREETK.PointerInteractions( [cube, floor], renderer.domElement, camera, objectClicked, objectHovered );
+            selector = new THREETK.PointerInteractions( [cube, floor], renderer.domElement, camera );
+		    selector.addEventListener( 'click', objectClicked );
+		    selector.addEventListener( 'hover', objectHovered );
 
         }
 
@@ -146,26 +147,26 @@
 
 		}
 
-        function objectClicked( newObj, oldObj ) {
+        function objectClicked( event ) {
 
-            if (newObj) {
-                newObj.material.color.setHex( 0xff00ff );
+            if (event.current) {
+                event.current.material.color.setHex( 0xff00ff );
             }
 
-            if (oldObj) {
-                oldObj.material.color.setHex( oldObj.originalColor );
+            if (event.previous) {
+                event.previous.material.color.setHex( event.previous.originalColor );
             }
 
         }
 
-        function objectHovered( newObj, oldObj ) {
+        function objectHovered( event ) {
 
-            if (newObj && newObj !== selector.clickedObject) {
-                newObj.material.color.setHex( 0xffff00 );
+            if ( event.current && event.current !== selector.clickedObject ) {
+                event.current.material.color.setHex( 0xffff00 );
             }
 
-            if (oldObj && oldObj !== selector.clickedObject ) {
-                oldObj.material.color.setHex( oldObj.originalColor );
+            if ( event.previous && event.previous !== selector.clickedObject ) {
+                event.previous.material.color.setHex( event.previous.originalColor );
             }
 
         }

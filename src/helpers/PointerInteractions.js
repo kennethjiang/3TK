@@ -8,18 +8,15 @@ import * as THREE from 'three'
 // objects: Array of object3D that you want to be selectable by mouse clicks or touch guesture
 // domElement: DomElement of the render
 // camera: camera of the scene
-// selectionChanged: Callback when object selection(s) change
 //
-function PointerInteractions( objects, domElement, camera, objectClicked, objectHovered) {
+function PointerInteractions( objects, domElement, camera ) {
 
     var scope = this;
     scope.objects = objects;
-    scope.clickedObject = null;
-    scope.hoveredObject = null;
 
-	//
-	// public attributes and methods
-	//
+    //
+    // public attributes and methods
+    //
 
     domElement.addEventListener( "mousedown", onPointerDown, false );
     domElement.addEventListener( "touchstart", onPointerDown, false );
@@ -51,9 +48,9 @@ function PointerInteractions( objects, domElement, camera, objectClicked, object
 
     };
 
-	//
-	// internals
-	//
+    //
+    // internals
+    //
 
     var pointerVector = new THREE.Vector2();
     var ray = new THREE.Raycaster();
@@ -62,7 +59,7 @@ function PointerInteractions( objects, domElement, camera, objectClicked, object
     var pointerDepressed = false;
     var lastPointerEvent;
 
-	function onPointerDown( event ) {
+    function onPointerDown( event ) {
 
         lastPointerEvent = "pointerdown";
 
@@ -80,10 +77,10 @@ function PointerInteractions( objects, domElement, camera, objectClicked, object
 
         var obj = insertedObject(event);
         if ( scope.hoveredObject != obj ) {
-            objectHovered( obj, scope.hoveredObject );
+            scope.dispatchEvent( { type: 'hover', previous: scope.hoveredObject, current: obj } );
+            scope.hoveredObject = obj;
         }
 
-        scope.hoveredObject = obj;
     }
 
     function onPointerUp( event ) {
@@ -98,10 +95,9 @@ function PointerInteractions( objects, domElement, camera, objectClicked, object
 
         var obj = insertedObject(event);
         if ( scope.clickedObject != obj ) {
-            objectClicked( obj, scope.clickedObject );
+            scope.dispatchEvent( { type: 'click', previous: scope.clickedObject, current: obj } );
+            scope.clickedObject = obj;
         }
-
-        scope.clickedObject = obj;
 
     }
 
@@ -113,7 +109,7 @@ function PointerInteractions( objects, domElement, camera, objectClicked, object
 
         if (! objectHovered ) return;
 
-        objectHovered( null, scope.hoveredObject );
+        scope.dispatchEvent( { type: 'hover', previous: scope.hoveredObject, current: null } );
 
         scope.hoveredObject = null;
 

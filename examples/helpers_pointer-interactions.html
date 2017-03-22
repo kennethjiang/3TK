@@ -38,7 +38,8 @@
 	</head>
 	<body>
         <div id="info" title="Demo Information">
-        Hover to turn Object3D yellow. Click to turn red. Click anywhere else to clear.
+            Hover to turn Object3D yellow. Click to turn red. Click anywhere else to clear.<br />
+            Press "delete" or "backspace" to remove clicked cube. Press "N" to place a new cube.
         </div>
 
 		<script src="/node_modules/three/build/three.js"></script>
@@ -57,11 +58,11 @@
         // MAIN
 
         // standard global variables
-        var container, scene, camera, renderer, controls, stats, selector;
+        var container, scene, camera, renderer, controls, stats, interactions;
         var clock = new THREE.Clock();
 
         // custom global variables
-        var cube;
+        var objects = [];
 
         init();
         animate();
@@ -87,8 +88,6 @@
         	container = document.getElementById( 'ThreeJS' );
         	container.appendChild( renderer.domElement );
 
-		    window.addEventListener( 'resize', onWindowResize, false );
-
         	// CONTROLS
         	controls = new THREETK.OrbitControls( camera, renderer.domElement );
         	// STATS
@@ -112,30 +111,61 @@
         	floor.position.y = -0.5;
         	floor.rotation.x = Math.PI / 2;
         	scene.add(floor);
+
         	// SKYBOX/FOG
         	var skyBoxGeometry = new THREE.CubeGeometry( 10000, 10000, 10000 );
         	var skyBoxMaterial = new THREE.MeshBasicMaterial( { color: 0x9999ff, side: THREE.BackSide } );
         	var skyBox = new THREE.Mesh( skyBoxGeometry, skyBoxMaterial );
         	scene.add(skyBox);
 
+            // Pointer interactions
+            interactions = new THREETK.PointerInteractions( objects, renderer.domElement, camera );
+		    interactions.addEventListener( 'click', objectClicked );
+		    interactions.addEventListener( 'hover', objectHovered );
+
         	////////////
         	// CUSTOM //
         	////////////
+            addCube();
+            addCube();
+            addCube();
+
+            // Events
+		    window.addEventListener( 'resize', onWindowResize, false );
+            window.addEventListener( 'keydown', function ( event ) {
+                switch ( event.keyCode ) {
+                    case 46: // DEL key
+                    case 8: // backsapce key
+                        removeCube( interactions.clickedObject );
+                        break;
+                    case 78: // N
+                    case 110: // n
+                        addCube();
+                        break;
+                }
+            });
+
+
+        }
+
+        function addCube() {
         	var cubeGeometry = new THREE.CubeGeometry( 50, 50, 50 );
         	var cubeMaterial = new THREE.MeshBasicMaterial( { color: 0x000088 } );
         	cube = new THREE.Mesh( cubeGeometry, cubeMaterial );
             cube.originalColor = cube.material.color.getHex();
-        	cube.position.set(0,26,0);
+        	cube.position.set(Math.random()*500 - 250, 25, Math.random()*500 - 250);
         	scene.add(cube);
+            interactions.objects.push(cube);
+            interactions.update();
+        }
 
-            //////////////
-            // Selector //
-            //////////////
-
-            selector = new THREETK.PointerInteractions( [cube, floor], renderer.domElement, camera );
-		    selector.addEventListener( 'click', objectClicked );
-		    selector.addEventListener( 'hover', objectHovered );
-
+        function removeCube( cube ) {
+            scene.remove(cube);
+            var index = interactions.objects.indexOf(cube);
+            if (index > -1) {
+                interactions.objects.splice(index, 1);
+            }
+            interactions.update();
         }
 
 		function onWindowResize() {
@@ -161,11 +191,11 @@
 
         function objectHovered( event ) {
 
-            if ( event.current && event.current !== selector.clickedObject ) {
+            if ( event.current && event.current !== interactions.clickedObject ) {
                 event.current.material.color.setHex( 0xffff00 );
             }
 
-            if ( event.previous && event.previous !== selector.clickedObject ) {
+            if ( event.previous && event.previous !== interactions.clickedObject ) {
                 event.previous.material.color.setHex( event.previous.originalColor );
             }
 

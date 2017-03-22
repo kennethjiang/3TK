@@ -13,6 +13,8 @@ function PointerInteractions( objects, domElement, camera ) {
 
     var scope = this;
     scope.objects = objects;
+    scope.hoveredObject = null;
+    scope.clickedObject = null;
 
     //
     // public attributes and methods
@@ -31,7 +33,7 @@ function PointerInteractions( objects, domElement, camera ) {
     domElement.addEventListener( "mouseout", onPointerOut, false );
     domElement.addEventListener( "touchleave", onPointerOut, false );
 
-    this.dispose = function () {
+    scope.dispose = function () {
 
         domElement.removeEventListener( "mousedown", onPointerDown );
         domElement.removeEventListener( "touchstart", onPointerDown );
@@ -47,6 +49,13 @@ function PointerInteractions( objects, domElement, camera ) {
         domElement.removeEventListener( "touchleave", onPointerOut );
 
     };
+
+    scope.update = function () {
+
+        if ( scope.objects.indexOf( scope.hoveredObject ) < 0 ) scope.hoveredObject = null;
+        if ( scope.objects.indexOf( scope.clickedObject ) < 0 ) scope.clickedObject = null;
+
+    }
 
     //
     // internals

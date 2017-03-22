@@ -119,7 +119,8 @@
         	scene.add(skyBox);
 
             // Pointer interactions
-            interactions = new THREETK.PointerInteractions( objects, renderer.domElement, camera );
+            interactions = new THREETK.PointerInteractions( renderer.domElement, camera, true );
+            interactions.objects = objects;
 		    interactions.addEventListener( 'click', objectClicked );
 		    interactions.addEventListener( 'hover', objectHovered );
 
@@ -145,7 +146,6 @@
                 }
             });
 
-
         }
 
         function addCube() {
@@ -155,15 +155,15 @@
             cube.originalColor = cube.material.color.getHex();
         	cube.position.set(Math.random()*500 - 250, 25, Math.random()*500 - 250);
         	scene.add(cube);
-            interactions.objects.push(cube);
+            objects.push(cube);
             interactions.update();
         }
 
         function removeCube( cube ) {
             scene.remove(cube);
-            var index = interactions.objects.indexOf(cube);
+            var index = objects.indexOf(cube);
             if (index > -1) {
-                interactions.objects.splice(index, 1);
+                objects.splice(index, 1);
             }
             interactions.update();
         }

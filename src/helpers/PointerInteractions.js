@@ -8,13 +8,16 @@ import * as THREE from 'three'
 // objects: Array of object3D that you want to be selectable by mouse clicks or touch guesture
 // domElement: DomElement of the render
 // camera: camera of the scene
+// recursive: should intersect sub-objects recursively? Default to false
 //
-function PointerInteractions( objects, domElement, camera ) {
+function PointerInteractions( domElement, camera, recursive ) {
 
     var scope = this;
-    scope.objects = objects;
+    scope.objects = [];
     scope.hoveredObject = null;
     scope.clickedObject = null;
+    scope.draggedObject = null;
+    scope.recursive = recursive === 'undefined' ? false : recursive ;
 
     //
     // public attributes and methods
@@ -80,12 +83,22 @@ function PointerInteractions( objects, domElement, camera ) {
 
         lastPointerEvent = "pointermove";
 
-        if (pointerDepressed) return ;
-
         var obj = insertedObject(event);
-        if ( scope.hoveredObject != obj ) {
-            scope.dispatchEvent( { type: 'hover', previous: scope.hoveredObject, current: obj } );
-            scope.hoveredObject = obj;
+
+        if (pointerDepressed) {
+
+            if ( scope.draggedObject != obj ) {
+                scope.dispatchEvent( { type: 'drag', previous: scope.draggedObject, current: obj } );
+                scope.draggedObject = obj;
+            }
+
+        } else {
+
+            if ( scope.hoveredObject != obj ) {
+                scope.dispatchEvent( { type: 'hover', previous: scope.hoveredObject, current: obj } );
+                scope.hoveredObject = obj;
+            }
+
         }
 
     }
@@ -110,11 +123,17 @@ function PointerInteractions( objects, domElement, camera ) {
 
         lastPointerEvent = "pointerout";
 
-        if (pointerDepressed) return ;
+        if (pointerDepressed)  {
 
-        scope.dispatchEvent( { type: 'hover', previous: scope.hoveredObject, current: null } );
+            scope.dispatchEvent( { type: 'drag', previous: scope.draggedObject, current: null } );
+            scope.draggedObject= null;
 
-        scope.hoveredObject = null;
+        } else {
+
+            scope.dispatchEvent( { type: 'hover', previous: scope.hoveredObject, current: null } );
+            scope.hoveredObject = null;
+
+        }
 
     }
 
@@ -130,7 +149,7 @@ function PointerInteractions( objects, domElement, camera ) {
 
         ray.setFromCamera( pointerVector, camera );
 
-        var intersections = ray.intersectObjects( objects, false );
+        var intersections = ray.intersectObjects( scope.objects, scope.recursive );
         return intersections[ 0 ] ? intersections[ 0 ].object : null;
 
     }

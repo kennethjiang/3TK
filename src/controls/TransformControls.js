@@ -685,7 +685,6 @@ function TransformControls( camera, domElement ) {
 
         this.object = undefined;
         this.visible = false;
-        this.axis = null;
 
     };
 
@@ -832,6 +831,12 @@ function TransformControls( camera, domElement ) {
                 scope.dispatchEvent( mouseDownEvent );
 
                 scope.axis = intersect.object.name;
+
+            } else {
+
+                var intersect = intersectObjects( pointer, [scope.object] );
+                if ( ! intersect ) return;
+
             }
 
             if ( ! scope.axis ) return ;

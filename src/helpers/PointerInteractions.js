@@ -55,8 +55,18 @@ function PointerInteractions( domElement, camera, recursive ) {
 
     scope.update = function () {
 
-        if ( scope.objects.indexOf( scope.hoveredObject ) < 0 ) scope.hoveredObject = null;
-        if ( scope.objects.indexOf( scope.clickedObject ) < 0 ) scope.clickedObject = null;
+        // reset corresponding field if the referenced object has been removed from the list
+        var allObjects = [];
+        for (var obj of scope.objects) {
+            allObjects.push(obj);
+            obj.traverse( function( child ) { allObjects.push( child ); } );
+        }
+
+        for ( var prop of [ "hoveredObject", "clickedObject", "draggedObject" ] ) {
+
+            if ( allObjects.indexOf( scope[prop] ) < 0 ) scope[prop] = null;
+
+        }
 
     }
 

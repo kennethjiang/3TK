@@ -819,16 +819,18 @@ function TransformControls( camera, domElement ) {
 
         if ( pointer.button === 0 || pointer.button === undefined ) {
 
+            var intersect;
+
             if ( _gizmo[ _mode ].handles !== null ) {
 
-                var intersect = intersectObjects( pointer, _gizmo[ _mode ].handles.children );
+                intersect = intersectObjects( pointer, _gizmo[ _mode ].handles.children );
                 if ( ! intersect ) return;
 
                 scope.axis = intersect.object.name;
 
             } else {
 
-                var intersect = intersectObjects( pointer, [scope.object] );
+                intersect = intersectObjects( pointer, [scope.object] );
                 if ( ! intersect ) return;
 
             }

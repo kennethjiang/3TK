@@ -46,42 +46,52 @@
                 var gui = new dat.GUI();
 
                 gui.add( commonController, "mode", [ "translate", "rotate", "scale" ] ).onChange( function( value ) {
-                    control.setMode( value );
+                    configureControl();
                 } );
 
                 gui.add( commonController, "space", [ "local", "world" ] ).onChange( function( value ) {
-                    control.setSpace( value );
+                    configureControl();
                 } );
 
                 gui.add( commonController, "size", [0.5, 1, 1.5, 2, 2.5, 3] ).onChange( function( value ) {
-                    control.setSize( value );
+                    configureControl();
                 } );
 
                 gui.add( commonController, "snap to grid" ).onChange( function( value ) {
-                    if (value) {
-                        control.setTranslationSnap( 100 );
-                        control.setRotationSnap( THREE.Math.degToRad( 15 ) );
-                    } else {
-                        control.setTranslationSnap( null );
-                        control.setRotationSnap( null );
-                    }
+                    configureControl();
                 } );
 
                 var f1 = gui.addFolder( "Translate" );
 
                 f1.add( translateController, "drag object" ).onChange( function( value ) {
-                    if ( value ) {
-                        control.setHandles( 'translate', null );
-                        control.axis = translateController["drag along"];
-                    } else {
-                        control.setHandles( 'translate', control.defaultHandles.translateHandles() );
-                    }
+                    configureControl();
                 } );
 
                 f1.add( translateController, "drag along", [ "X", "Y", "Z", "XY", "XZ", "YZ", "XYZ", "XYZE" ] ).onChange( function( value ) {
-                    control.axis = value;
+                    configureControl();
                 } );
 
+            }
+
+            function configureControl() {
+                control.setMode( commonController.mode );
+                control.setSize( commonController.size );
+                control.setSpace( commonController.space );
+
+                if ( commonController["snap to grid"] ) {
+                        control.setTranslationSnap( 100 );
+                        control.setRotationSnap( THREE.Math.degToRad( 15 ) );
+                } else {
+                        control.setTranslationSnap( null );
+                        control.setRotationSnap( null );
+                }
+
+                switch ( commonController.mode ) {
+                    case "translate":
+                        control.setHandles( "translate", translateController["drag object"] ? null : control.defaultHandles.translateHandles() );
+                        control.axis = translateController["drag along"];
+                        break;
+                }
             }
 
 			function init() {

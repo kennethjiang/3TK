@@ -673,10 +673,20 @@ function TransformControls( camera, domElement ) {
 
     };
 
-    this.attach = function ( object ) {
+    //
+    // mouseDownEvent: an mousedown event object - an optional argument that's needed when a mousedown
+    //    event is used to determine which object to attach.
+    //    Note that "onPointerDown" will return prematurally when object is not attached
+    //
+    this.attach = function ( object, mousedownEvent ) {
 
         this.object = object;
         this.visible = true;
+
+        if (mousedownEvent) {
+            onPointerDown( mousedownEvent );
+        }
+
         this.update();
 
     };
@@ -835,14 +845,12 @@ function TransformControls( camera, domElement ) {
 
             }
 
+            if ( ! scope.axis ) return ;
+
             event.preventDefault();
             event.stopPropagation();
 
             scope.dispatchEvent( mouseDownEvent );
-
-
-            if ( ! scope.axis ) return ;
-
             scope.update();
 
             eye.copy( camPosition ).sub( worldPosition ).normalize();

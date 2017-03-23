@@ -822,13 +822,7 @@ function TransformControls( camera, domElement ) {
             if ( _gizmo[ _mode ].handles !== null ) {
 
                 var intersect = intersectObjects( pointer, _gizmo[ _mode ].handles.children );
-
                 if ( ! intersect ) return;
-
-                event.preventDefault();
-                event.stopPropagation();
-
-                scope.dispatchEvent( mouseDownEvent );
 
                 scope.axis = intersect.object.name;
 
@@ -838,6 +832,12 @@ function TransformControls( camera, domElement ) {
                 if ( ! intersect ) return;
 
             }
+
+            event.preventDefault();
+            event.stopPropagation();
+
+            scope.dispatchEvent( mouseDownEvent );
+
 
             if ( ! scope.axis ) return ;
 

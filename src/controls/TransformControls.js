@@ -682,12 +682,11 @@ function TransformControls( camera, domElement ) {
 
         this.object = object;
         this.visible = true;
+        this.update();
 
         if (mousedownEvent) {
             onPointerDown( mousedownEvent );
         }
-
-        this.update();
 
     };
 

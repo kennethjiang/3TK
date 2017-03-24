@@ -58,7 +58,6 @@ function PointerInteractions( domElement, camera, recursive ) {
         // reset corresponding field if the referenced object has been removed from the list
         var allObjects = [];
         for (var obj of scope.objects) {
-            allObjects.push(obj);
             obj.traverse( function( child ) { allObjects.push( child ); } );
         }
 

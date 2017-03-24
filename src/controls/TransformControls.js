@@ -685,6 +685,14 @@ function TransformControls( camera, domElement ) {
         this.update();
 
         if (mousedownEvent) {
+
+            // This is a work-around for a very nasty bug: somehow `this.update` would fail to update matrix for `activePlane`
+            // to reflect the new object it's attached to. The intersect point would be on the `activePlane` when it was attached
+            // to the old `this.object`.
+            // Maybe this should be moved inside `this.update` itself. But I don't know enough about 3js, I put it here to minimize
+            // the possible negative impact.
+            this.parent.updateMatrixWorld();
+
             onPointerDown( mousedownEvent );
         }
 

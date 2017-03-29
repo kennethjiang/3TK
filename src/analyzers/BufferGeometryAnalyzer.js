@@ -115,11 +115,9 @@ function VertexGraph( positions, precisionPoints ) {
  *   - precisionPoints: number of decimal points, e.g. 4 for epsilon of 0.0001. 2 vertices are considered "the same" when they are with the distance defined by precisionPoints
  */
 
-function IslandSeparator( precisionPoints=4 ) {
+var BufferGeometryAnalyzer = {
 
-    var self = this;
-
-	self.separate = function ( geometry ) {
+	isolatedGeometries: function ( geometry, precisionPoints=4 ) {
 
         var originalPositions = geometry.attributes.position.array;
         var originalNormals = geometry.attributes.normal !== undefined ? geometry.attributes.normal.array : undefined;
@@ -179,8 +177,8 @@ function IslandSeparator( precisionPoints=4 ) {
         });
 
         return geometries;
-    };
+    }
 
 }
 
-export { IslandSeparator }
+export { BufferGeometryAnalyzer }

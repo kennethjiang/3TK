@@ -6,8 +6,8 @@ var files = {
     "loaders": [
         "loaders_stl",
     ],
-    "modifiers": [
-        "modifiers_island-separator",
+    "analyzers": [
+        "analyzers_buffergeometry_split",
     ],
     "exporters": [
         "exporters_stl-binary",

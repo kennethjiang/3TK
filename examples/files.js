@@ -8,6 +8,7 @@ var files = {
     ],
     "analyzers": [
         "analyzers_buffergeometry_split",
+        "analyzers_buffergeometry_faces",
     ],
     "exporters": [
         "exporters_stl-binary",

@@ -7,13 +7,13 @@ import * as THREE from 'three'
 
 /**
  * Calculate the key for the "trio" - 3 consecutive numbers in `array` starting from `startIndex`
+ * precisionPoints = 4; // number of decimal points, e.g. 4 for epsilon of 0.0001
  *
  */
-function keyForTrio( array, startIndex, precisionPoints ) {
+function keyForTrio( array, startIndex, precisionPoints = 4 ) {
 
         let [v1, v2, v3] = [ array[startIndex], array[startIndex+1], array[startIndex+2] ];
 
-        var precisionPoints = 4; // number of decimal points, e.g. 4 for epsilon of 0.0001
         var precision = Math.pow( 10, precisionPoints );
         return Math.round( v1 * precision ) + '_' + Math.round( v2 * precision ) + '_' + Math.round( v3 * precision );
 
@@ -38,17 +38,6 @@ function VertexGraph( positions, precisionPoints ) {
     var self = this;
 
     self.verticesMap = new Map(); // map of { vertexKey -> vertexNode }
-
-    self.vertexKeyForPosition = function(posIndex) {
-
-        // 0 -> x; 1 -> y; 2 -> z
-        let [x, y, z] = [ positions[posIndex], positions[posIndex+1], positions[posIndex+2] ];
-
-        var precisionPoints = 4; // number of decimal points, e.g. 4 for epsilon of 0.0001
-        var precision = Math.pow( 10, precisionPoints );
-        return Math.round( x * precision ) + '_' + Math.round( y * precision ) + '_' + Math.round( z * precision );
-
-    };
 
     self.vertexForPosition = function(posIndex) {
         return self.verticesMap.get( keyForTrio(positions, posIndex, precisionPoints) );
@@ -191,7 +180,57 @@ var BufferGeometryAnalyzer = {
         return geometries;
     },
 
-    normalToFaceMap: function( bufferGeometry, precisionPoint=4 ) {
+    normalToFaceMap: function( geometry, precisionPoint=4 ) {
+
+        if (geometry.attributes.normal === undefined) {
+            throw new Error('BufferGeometry is missing normals. Can not calculate the map');
+        }
+        var normals = geometry.attributes.normal.array;
+
+        var map = new Map();
+        for (var faceIndex = 0; faceIndex < normals.length; faceIndex += 9) { // a normal is 3 floats for each vertex
+
+            var key = keyForTrio(normals, faceIndex, precisionPoint ); //normals for all 3 vertices should be the same. Take the 1st one
+            if ( ! map.has( key ) ) {
+                map.set(key, { normal: normals.slice(faceIndex, faceIndex+3), indices: [faceIndex] });
+            } else {
+                map.get(key).indices.push(faceIndex);
+            }
+        }
+
+        return map;
+
+    },
+
+    sortedNormalsByFaceArea: function( geometry, precisionPoint=4 ) {
+
+        var positions = geometry.attributes.position.array;
+
+        // This is not really the area of the face. But it seems to be proportional to the area:
+        // https://github.com/mrdoob/three.js/blob/dev/src/core/Geometry.js#L435
+        var areaOfFace = function(faceIndex) {
+
+            var vA = new THREE.Vector3(positions[faceIndex], positions[faceIndex+1], positions[faceIndex+2]);
+            var vB = new THREE.Vector3(positions[faceIndex+3], positions[faceIndex+4], positions[faceIndex+5]);
+            var vC = new THREE.Vector3(positions[faceIndex+6], positions[faceIndex+7], positions[faceIndex+8]);
+            var cb = new THREE.Vector3(), ab = new THREE.Vector3();
+
+            cb.subVectors( vC, vB );
+            ab.subVectors( vA, vB );
+            cb.cross( ab );
+
+            return cb.length();
+        }
+
+        var normalMap = BufferGeometryAnalyzer.normalToFaceMap(geometry, precisionPoint);
+
+        var result = []
+        for ( var value of normalMap.values() ) {
+            value.area = value.indices.reduce(function(sum, faceIndex) {  return sum + areaOfFace(faceIndex) ; }, 0);
+            result.push(value);
+        }
+
+        return result.sort( function(a,b) { return b.area - a.area; } );
     }
 
 }

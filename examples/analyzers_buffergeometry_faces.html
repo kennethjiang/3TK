@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>three.js webgl - STL</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<style>
+			body {
+				font-family: Monospace;
+				background-color: #000000;
+				margin: 0px;
+				overflow: hidden;
+			}
+
+			#info {
+				color: #fff;
+				position: absolute;
+				top: 10px;
+				width: 100%;
+				text-align: center;
+				z-index: 100;
+				display:block;
+
+			}
+
+			a { color: skyblue }
+			.button { background:#999; color:#eee; padding:0.2em 0.5em; cursor:pointer }
+			.highlight { background:orange; color:#fff; }
+
+			span {
+				display: inline-block;
+				width: 60px;
+				float: left;
+				text-align: center;
+			}
+
+		</style>
+	</head>
+	<body>
+		<div id="info">
+            2 Largest groups of faces with the same normals are highlighted in colors.
+		</div>
+
+		<script src="/node_modules/three/build/three.js"></script>
+		<script src="/node_modules/stats.js/build/stats.min.js"></script>
+		<script src="/dist/3tk.js"></script>
+
+
+		<script>
+
+			if ( ! THREETK.Detector.webgl ) THREETK.Detector.addGetWebGLMessage();
+
+			var container, stats;
+
+			var camera, cameraTarget, scene, renderer;
+
+			init();
+			animate();
+
+			function init() {
+
+				container = document.createElement( 'div' );
+				document.body.appendChild( container );
+
+				camera = new THREE.PerspectiveCamera( 35, window.innerWidth / window.innerHeight, 1, 15 );
+				camera.position.set( 3, 0.15, 3 );
+
+				cameraTarget = new THREE.Vector3( 0, -0.25, 0 );
+
+				scene = new THREE.Scene();
+				scene.fog = new THREE.Fog( 0x72645b, 2, 15 );
+
+
+				// Ground
+
+				var plane = new THREE.Mesh(
+					new THREE.PlaneBufferGeometry( 40, 40 ),
+					new THREE.MeshPhongMaterial( { color: 0x999999, specular: 0x101010 } )
+				);
+				plane.rotation.x = -Math.PI/2;
+				plane.position.y = -0.5;
+				scene.add( plane );
+
+				plane.receiveShadow = true;
+
+
+				// ASCII file
+
+				var loader = new THREETK.STLLoader();
+				loader.load( './models/stl/ascii/slotted_disk.stl', function ( geometry ) {
+
+                    var highlighColors = [ {r:1, g:0, b:0}, {r:0, g:1, b:0}, {r:0, g:0, b:1} ];
+                    var sortedNomrals = THREETK.BufferGeometryAnalyzer.sortedNormalsByFaceArea( geometry, 4 );
+
+                    var colors = [];
+                    for ( var i = 0; i < geometry.attributes.position.array.length; i++ ) {
+                        colors[i] = 0.5;
+                    }
+
+                    for ( var i = 0; i < 3; i++ ) {
+
+                        for ( var index of sortedNomrals[i].indices ) {
+
+                            colors[index] = highlighColors[i].r;
+                            colors[index+1] = highlighColors[i].g;
+                            colors[index+2] = highlighColors[i].b;
+                            colors[index+3] = highlighColors[i].r;
+                            colors[index+4] = highlighColors[i].g;
+                            colors[index+5] = highlighColors[i].b;
+                            colors[index+6] = highlighColors[i].r;
+                            colors[index+7] = highlighColors[i].g;
+                            colors[index+8] = highlighColors[i].b;
+
+                        }
+
+                    }
+
+                    geometry.removeAttribute( 'color' );
+                    geometry.addAttribute( 'color', new THREE.BufferAttribute( new Float32Array( colors ), 3 ) );
+
+				    var	meshMaterial = new THREE.MeshPhongMaterial({ vertexColors: THREE.VertexColors });
+					var mesh = new THREE.Mesh( geometry, meshMaterial);
+
+					mesh.position.set( 0, 0, 0.6 );
+					mesh.rotation.set( 0, - Math.PI / 2, 0 );
+
+					mesh.castShadow = true;
+					mesh.receiveShadow = true;
+
+					scene.add( mesh );
+
+				} );
+
+
+				// Lights
+
+				scene.add( new THREE.HemisphereLight( 0x443333, 0x111122 ) );
+
+				addShadowedLight( 1, 1, 1, 0xffffff, 1.35 );
+				addShadowedLight( 0.5, 1, -1, 0xffaa00, 1 );
+				// renderer
+
+				renderer = new THREE.WebGLRenderer( { antialias: true } );
+				renderer.setClearColor( scene.fog.color );
+				renderer.setPixelRatio( window.devicePixelRatio );
+				renderer.setSize( window.innerWidth, window.innerHeight );
+
+				renderer.gammaInput = true;
+				renderer.gammaOutput = true;
+
+				renderer.shadowMap.enabled = true;
+				renderer.shadowMap.renderReverseSided = false;
+
+				container.appendChild( renderer.domElement );
+
+				// stats
+
+				stats = new Stats();
+				container.appendChild( stats.dom );
+
+				//
+
+				window.addEventListener( 'resize', onWindowResize, false );
+
+			}
+
+			function addShadowedLight( x, y, z, color, intensity ) {
+
+				var directionalLight = new THREE.DirectionalLight( color, intensity );
+				directionalLight.position.set( x, y, z );
+				scene.add( directionalLight );
+
+				directionalLight.castShadow = true;
+
+				var d = 1;
+				directionalLight.shadow.camera.left = -d;
+				directionalLight.shadow.camera.right = d;
+				directionalLight.shadow.camera.top = d;
+				directionalLight.shadow.camera.bottom = -d;
+
+				directionalLight.shadow.camera.near = 1;
+				directionalLight.shadow.camera.far = 4;
+
+				directionalLight.shadow.mapSize.width = 1024;
+				directionalLight.shadow.mapSize.height = 1024;
+
+				directionalLight.shadow.bias = -0.005;
+
+			}
+
+			function onWindowResize() {
+
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+
+				renderer.setSize( window.innerWidth, window.innerHeight );
+
+			}
+
+			function animate() {
+
+				requestAnimationFrame( animate );
+
+				render();
+				stats.update();
+
+			}
+
+			function render() {
+
+				var timer = Date.now() * 0.0005;
+
+				camera.position.x = Math.cos( timer ) * 3;
+				camera.position.z = Math.sin( timer ) * 3;
+
+				camera.lookAt( cameraTarget );
+
+				renderer.render( scene, camera );
+
+			}
+
+		</script>
+	</body>
+</html>

@@ -5,6 +5,20 @@
 
 import * as THREE from 'three'
 
+/**
+ * Calculate the key for the "trio" - 3 consecutive numbers in `array` starting from `startIndex`
+ *
+ */
+function keyForTrio( array, startIndex, precisionPoints ) {
+
+        let [v1, v2, v3] = [ array[startIndex], array[startIndex+1], array[startIndex+2] ];
+
+        var precisionPoints = 4; // number of decimal points, e.g. 4 for epsilon of 0.0001
+        var precision = Math.pow( 10, precisionPoints );
+        return Math.round( v1 * precision ) + '_' + Math.round( v2 * precision ) + '_' + Math.round( v3 * precision );
+
+}
+
 function VertexNode( posIndex ) {
     var self = this;
     self.neighbors = new Set();
@@ -22,15 +36,13 @@ function VertexNode( posIndex ) {
 
 function VertexGraph( positions, precisionPoints ) {
     var self = this;
-    self.positions = positions;
-    self.precisionPoints = precisionPoints;
 
     self.verticesMap = new Map(); // map of { vertexKey -> vertexNode }
 
     self.vertexKeyForPosition = function(posIndex) {
 
         // 0 -> x; 1 -> y; 2 -> z
-        let [x, y, z] = [ self.positions[posIndex], self.positions[posIndex+1], self.positions[posIndex+2] ];
+        let [x, y, z] = [ positions[posIndex], positions[posIndex+1], positions[posIndex+2] ];
 
         var precisionPoints = 4; // number of decimal points, e.g. 4 for epsilon of 0.0001
         var precision = Math.pow( 10, precisionPoints );
@@ -39,14 +51,14 @@ function VertexGraph( positions, precisionPoints ) {
     };
 
     self.vertexForPosition = function(posIndex) {
-        return self.verticesMap.get( self.vertexKeyForPosition(posIndex) );
+        return self.verticesMap.get( keyForTrio(positions, posIndex, precisionPoints) );
     };
 
     for (var faceIndex = 0; faceIndex < positions.length; faceIndex += 9) { // a face is 9 positions - 3 vertex x 3 positions
 
         var verticesOfCurrentFace = [];
         for (var v = 0; v < 3; v++ ) {
-            var key = self.vertexKeyForPosition( faceIndex + v*3 );
+            var key = keyForTrio( positions, faceIndex + v*3, precisionPoints );
 
             if ( !self.verticesMap.has(key) ) {
                 self.verticesMap.set(key, new VertexNode());
@@ -177,6 +189,9 @@ var BufferGeometryAnalyzer = {
         });
 
         return geometries;
+    },
+
+    normalToFaceMap: function( bufferGeometry, precisionPoint=4 ) {
     }
 
 }

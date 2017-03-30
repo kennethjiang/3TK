@@ -82,7 +82,7 @@
                         if ( meshes.length == 1 ) {
 
                             scene.remove( meshes[0] );
-                            var islands = new THREETK.BufferGeometryAnalyzer.isolatedGeometries( meshes[0].geometry );
+                            var islands = THREETK.BufferGeometryAnalyzer.isolatedGeometries( meshes[0].geometry );
 
                             meshes = [];
                             for ( var i = 0; i < islands.length; i++ ) {

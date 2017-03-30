@@ -37,10 +37,10 @@ function VertexNode( posIndex ) {
 function VertexGraph( positions, precisionPoints ) {
     var self = this;
 
-    self.verticesMap = new Map(); // map of { vertexKey -> vertexNode }
+    self.verticesMap = {}; // map of { vertexKey -> vertexNode }
 
     self.vertexForPosition = function(posIndex) {
-        return self.verticesMap.get( keyForTrio(positions, posIndex, precisionPoints) );
+        return self.verticesMap[ keyForTrio(positions, posIndex, precisionPoints) ];
     };
 
     for (var faceIndex = 0; faceIndex < positions.length; faceIndex += 9) { // a face is 9 positions - 3 vertex x 3 positions
@@ -49,11 +49,12 @@ function VertexGraph( positions, precisionPoints ) {
         for (var v = 0; v < 3; v++ ) {
             var key = keyForTrio( positions, faceIndex + v*3, precisionPoints );
 
-            if ( !self.verticesMap.has(key) ) {
-                self.verticesMap.set(key, new VertexNode());
+            if ( ! self.verticesMap.hasOwnProperty(key) ) {
+                var vn = new VertexNode();
+                self.verticesMap[key] = vn;
             }
 
-            verticesOfCurrentFace.push( self.verticesMap.get(key) );
+            verticesOfCurrentFace.push( self.verticesMap[key] );
         }
 
         // Since these 3 vertices are on the same face, they are neighbors on the graph
@@ -64,7 +65,8 @@ function VertexGraph( positions, precisionPoints ) {
     self.islands = function() {
         var allIslands = [];
 
-        self.verticesMap.forEach( function( vertexNode ) {
+        Object.getOwnPropertyNames( self.verticesMap ).forEach( function( key ) {
+            var vertexNode = self.verticesMap[key];
 
             if (vertexNode.island) {
                 return ;
@@ -126,7 +128,6 @@ var BufferGeometryAnalyzer = {
 
         var graph = new VertexGraph(originalPositions, precisionPoints);
         var islands = graph.islands();
-        var verticesMap = graph.verticesMap;
 
         islands.forEach( function( island ) {
             island.faceIndices = [];  // List of position indices the faces (the same as position index of 1st vertex of the face) on this island

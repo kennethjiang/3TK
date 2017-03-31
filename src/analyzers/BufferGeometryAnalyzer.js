@@ -19,91 +19,90 @@ function keyForTrio( array, startIndex, precisionPoints = 4 ) {
 
 }
 
-// VertexNode sounds like oxymoron, but here Vertex is in the context of Geometry, and Node is in the context of Graph programming data structure
-function VertexNode( posIndex ) {
-    var self = this;
-    self.neighbors = new Set();
-    self.island = undefined;
-
-    self.addNeighbor = function( vertexNode ) {
-        if (vertexNode === self) {
-            return ;
-        }
-
-        self.neighbors.add( vertexNode );
-        vertexNode.neighbors.add( self );
-    };
-}
-
 function VertexGraph( positions, precisionPoints ) {
     var self = this;
 
-    self.verticesMap = {}; // map of { vertexKey -> vertexNode }
+    var posIndexMap = {}; // map of { key (= xyz coorindate) -> array of position indices sharing the same key }
 
-    self.vertexForPosition = function(posIndex) {
-        return self.verticesMap[ keyForTrio(positions, posIndex, precisionPoints) ];
-    };
-
-    // Iterate position array to create the graph
-    for (var faceIndex = 0; faceIndex < positions.length; faceIndex += 9) { // a face is 9 positions - 3 vertex x 3 positions
-
-        var verticesOfCurrentFace = [];
-        for (var v = 0; v < 3; v++ ) {
-            var key = keyForTrio( positions, faceIndex + v*3, precisionPoints );
-
-            if ( ! self.verticesMap.hasOwnProperty(key) ) {
-                var vn = new VertexNode();
-                self.verticesMap[key] = vn;
-            }
-
-            verticesOfCurrentFace.push( self.verticesMap[key] );
+    // establish posIndexMap;
+    for ( var posIndex = 0; posIndex <= positions.length-2; posIndex += 3) {
+        var key = keyForTrio(positions, posIndex, precisionPoints);
+        if ( ! posIndexMap.hasOwnProperty(key) ) {
+            posIndexMap[key] = [posIndex];
+        } else {
+            posIndexMap[key].push(posIndex);
         }
-
-        // Since these 3 vertices are on the same face, they are neighbors on the graph
-        verticesOfCurrentFace[0].addNeighbor(verticesOfCurrentFace[1]);
-        verticesOfCurrentFace[0].addNeighbor(verticesOfCurrentFace[2]);
     }
 
-    self.islands = function() {
-        var allIslands = [];
+    // Establish the graph by connecting the nodes
+    //
+    // nodeArray[i] is corresponding to trio of (positions[i*3], positions[i*3+1], positions[i*3+2]), which is
+    // the key to understand the code
+    var faceArray= [];
 
-        Object.getOwnPropertyNames( self.verticesMap ).forEach( function( key ) {
-            var vertexNode = self.verticesMap[key];
+    for (var faceIndex = 0; faceIndex <= positions.length-8; faceIndex += 9) { // a face is 9 positions - 3 vertex x 3 positions
 
-            if (vertexNode.island) {
-                return ;
-            }
+        var neighboringFaces = new Set(); // Set of faceIndex that neighbors current face
 
-            var newIsland = {};
-            self.floodFill(vertexNode, newIsland)
-            allIslands.push(newIsland);
-        });
+        for ( var v = 0; v < 3; v++) { // For each vertex on the same face
 
-        return allIslands;
-    };
+            var posIndex = faceIndex + v*3;
 
-    self.floodFill = function(start, island) {
+            var key = keyForTrio(positions, posIndex, precisionPoints);
+            var verticesOnSamePosition = posIndexMap[key];
+
+            // add faces correspoding to these vertices as neighbors
+            verticesOnSamePosition.forEach( function( posIndex ) {
+                neighboringFaces.add( Math.floor(posIndex/9) );
+            });
+        }
+
+        // Remove self from neighbors
+        neighboringFaces.delete( faceIndex/9 );
+
+        faceArray[faceIndex/9] = { faceIndex, neighbors: neighboringFaces};
+
+    }
+
+    self.islands = []; // islands are array of nodes that are connected
+
+    faceArray.forEach( function( face ) {
+
+        if (face.island !== undefined) {
+            return ;
+        }
+
+        var newIsland = { faceIndices: [] };
+        floodFill(face, newIsland)
+        self.islands.push(newIsland);
+    });
+
+
+    function floodFill(start, island) {
 
         // Breadth-first traversal
         var queue = [];
 
-        // Mark the source node as visited and enqueue it
+        // Mark the source face as visited and enqueue it
         queue.unshift(start);
         start.island = island;
+        island.faceIndices.push(start.faceIndex);
 
         while (queue.length > 0) {
 
-            // Dequeue a vertex from queue and print it
-            var v = queue.pop(0);
+            // Dequeue a face from queue
+            var face = queue.pop(0);
 
-            // Get all adjacent vertices of the dequeued
-            // vertex s. If a adjacent has not been visited,
+            // Get all adjacent faces of the dequeued
+            // face s. If an adjacent has not been visited,
             // then mark it visited and enqueue it
-            v.neighbors.forEach( function( nextV ) {
+            face.neighbors.forEach( function(i) {
+                var nextFace = faceArray[i];
 
-                if (! nextV.island) {
-                    queue.unshift(nextV);
-                    nextV.island = island;
+                if ( nextFace.island === undefined ) {
+                    queue.unshift(nextFace);
+                    nextFace.island = island;
+                    island.faceIndices.push( nextFace.faceIndex );
                 }
             });
         }
@@ -129,38 +128,27 @@ var BufferGeometryAnalyzer = {
         var originalColors = geometry.attributes.color !== undefined ? geometry.attributes.color.array : undefined;
 
         var graph = new VertexGraph(originalPositions, precisionPoints);
-        var islands = graph.islands();
 
-        islands.forEach( function( island ) {
-            island.faceIndices = [];  // List of position indices the faces (the same as position index of 1st vertex of the face) on this island
-        });
+        var geometries = graph.islands.map( function( island ) {
 
-        for (var faceIndex = 0; faceIndex < originalPositions.length; faceIndex += 9) { // a face is 9 positions - 3 vertex x 3 positions
-            var islandOfCurrentFace = graph.vertexForPosition(faceIndex).island;
-            islandOfCurrentFace.faceIndices.push(faceIndex);
-        }
-
-        var geometries = islands.map( function( island ) {
-
-            // Adopted from STLLoader.js
             var geometry = new THREE.BufferGeometry();
 
             var vertices = [];
             var normals = [];
             var colors = [];
 
-            island.faceIndices.forEach( function( faceIndex ) {
+            island.faceIndices.forEach( function( posIndex ) {
 
                 for (var i = 0; i < 9; i++) {
 
-                    vertices.push( originalPositions[faceIndex + i] );
+                    vertices.push( originalPositions[posIndex + i] );
 
                     if (originalNormals) {
-                        normals.push( originalNormals[faceIndex + i] );
+                        normals.push( originalNormals[posIndex + i] );
                     }
 
                     if (originalColors) {
-                        colors.push( originalColors[faceIndex + i] );
+                        colors.push( originalColors[posIndex + i] );
                     }
 
                 }

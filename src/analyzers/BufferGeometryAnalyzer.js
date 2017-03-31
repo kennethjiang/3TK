@@ -8,7 +8,6 @@ import * as THREE from 'three'
 /**
  * Calculate the key for the "trio" - 3 consecutive numbers in `array` starting from `startIndex`
  * precisionPoints = 4; // number of decimal points, e.g. 4 for epsilon of 0.0001
- *
  */
 function keyForTrio( array, startIndex, precisionPoints = 4 ) {
 
@@ -19,52 +18,46 @@ function keyForTrio( array, startIndex, precisionPoints = 4 ) {
 
 }
 
-function VertexGraph( positions, precisionPoints ) {
-    var self = this;
-
-    var posIndexMap = {}; // map of { key (= xyz coorindate) -> array of position indices sharing the same key }
+/**
+ * map of { key (= xyz coorindate) -> array of position indices sharing the same key }
+ */
+function vertexPositionMap( positions, precisionPoints ) {
+    var map = {};
 
     // establish posIndexMap;
     for ( var posIndex = 0; posIndex <= positions.length-2; posIndex += 3) {
         var key = keyForTrio(positions, posIndex, precisionPoints);
-        if ( ! posIndexMap.hasOwnProperty(key) ) {
-            posIndexMap[key] = [posIndex];
+        if ( ! map.hasOwnProperty(key) ) {
+            map[key] = [posIndex];
         } else {
-            posIndexMap[key].push(posIndex);
+            map[key].push(posIndex);
         }
     }
 
-    // Establish the graph by connecting the nodes
+    return map;
+}
+
+/**
+ * The gragh of how faces are connected (touching) each other
+ */
+function FaceGraph( positions, precisionPoints, neighboringFacesOf) {
+    var self = this;
+
+    // Establish the graph by iterating through faces and establish how they are connected (touching)
     //
-    // nodeArray[i] is corresponding to trio of (positions[i*3], positions[i*3+1], positions[i*3+2]), which is
-    // the key to understand the code
+    // faceArray[i] is corresponding to positions[i*9..i*9+8] = 3 vertices X trio of positions (x, y, z)
+    // this is the key to understand the code
     var faceArray= [];
 
     for (var faceIndex = 0; faceIndex <= positions.length-8; faceIndex += 9) { // a face is 9 positions - 3 vertex x 3 positions
-
-        var neighboringFaces = new Set(); // Set of faceIndex that neighbors current face
-
-        for ( var v = 0; v < 3; v++) { // For each vertex on the same face
-
-            var posIndex = faceIndex + v*3;
-
-            var key = keyForTrio(positions, posIndex, precisionPoints);
-            var verticesOnSamePosition = posIndexMap[key];
-
-            // add faces correspoding to these vertices as neighbors
-            verticesOnSamePosition.forEach( function( posIndex ) {
-                neighboringFaces.add( Math.floor(posIndex/9) );
-            });
-        }
-
+        var neighboringFaces = neighboringFacesOf( faceIndex );
         // Remove self from neighbors
         neighboringFaces.delete( faceIndex/9 );
 
         faceArray[faceIndex/9] = { faceIndex, neighbors: neighboringFaces};
-
     }
 
-    self.islands = []; // islands are array of nodes that are connected
+    self.islands = []; // islands are array of faces that are connected
 
     faceArray.forEach( function( face ) {
 
@@ -127,7 +120,29 @@ var BufferGeometryAnalyzer = {
         var originalNormals = geometry.attributes.normal !== undefined ? geometry.attributes.normal.array : undefined;
         var originalColors = geometry.attributes.color !== undefined ? geometry.attributes.color.array : undefined;
 
-        var graph = new VertexGraph(originalPositions, precisionPoints);
+        var vertexPosMap = vertexPositionMap( originalPositions, precisionPoints );
+
+        var neighboringFacesOf = function( faceIndex ) {
+
+            var neighboringFaces = new Set(); // Set of faceIndex that neighbors current face
+
+            for ( var v = 0; v < 3; v++) { // For each vertex on the same face
+
+                var posIndex = faceIndex + v*3;
+
+                var key = keyForTrio(originalPositions, posIndex, precisionPoints);
+                var verticesOnSamePosition = vertexPosMap[key];
+
+                // add faces correspoding to these vertices as neighbors
+                verticesOnSamePosition.forEach( function( posIndex ) {
+                    neighboringFaces.add( Math.floor(posIndex/9) );
+                });
+            }
+
+            return neighboringFaces;
+        }
+
+        var graph = new FaceGraph(originalPositions, precisionPoints, neighboringFacesOf);
 
         var geometries = graph.islands.map( function( island ) {
 

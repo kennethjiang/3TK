@@ -57,48 +57,53 @@ function FaceGraph( positions, precisionPoints, neighboringFacesOf) {
         faceArray[faceIndex/9] = { faceIndex, neighbors: neighboringFaces};
     }
 
-    self.islands = []; // islands are array of faces that are connected
+    /**
+     * Return groups of connected faces using flood-fill algorithm
+     * Return:
+     *   Array of { faceIndices: [ index of faces ] }
+     */
+    self.floodFill = function() {
 
-    faceArray.forEach( function( face ) {
+        var islands = []; // islands are array of faces that are connected
 
-        if (face.island !== undefined) {
-            return ;
-        }
+        faceArray.forEach( function( start ) {
 
-        var newIsland = { faceIndices: [] };
-        floodFill(face, newIsland)
-        self.islands.push(newIsland);
-    });
+            if (start.island !== undefined) {
+                return ;
+            }
 
+            var island = { faceIndices: [] };
+            islands.push(island);
 
-    function floodFill(start, island) {
+            // Breadth-first traversal
+            var queue = [];
 
-        // Breadth-first traversal
-        var queue = [];
+            // Mark the source face as visited and enqueue it
+            start.island = island;
+            island.faceIndices.push(start.faceIndex);
+            queue.unshift(start);
 
-        // Mark the source face as visited and enqueue it
-        queue.unshift(start);
-        start.island = island;
-        island.faceIndices.push(start.faceIndex);
+            while (queue.length > 0) {
 
-        while (queue.length > 0) {
+                // Dequeue a face from queue
+                var face = queue.pop(0);
 
-            // Dequeue a face from queue
-            var face = queue.pop(0);
+                // Get all adjacent faces of the dequeued
+                // face s. If an adjacent has not been visited,
+                // then mark it visited and enqueue it
+                face.neighbors.forEach( function(i) {
+                    var nextFace = faceArray[i];
 
-            // Get all adjacent faces of the dequeued
-            // face s. If an adjacent has not been visited,
-            // then mark it visited and enqueue it
-            face.neighbors.forEach( function(i) {
-                var nextFace = faceArray[i];
+                    if ( nextFace.island === undefined ) {
+                        queue.unshift(nextFace);
+                        nextFace.island = island;
+                        island.faceIndices.push( nextFace.faceIndex );
+                    }
+                });
+            }
+        });
 
-                if ( nextFace.island === undefined ) {
-                    queue.unshift(nextFace);
-                    nextFace.island = island;
-                    island.faceIndices.push( nextFace.faceIndex );
-                }
-            });
-        }
+        return islands;
     };
 
 }
@@ -144,7 +149,7 @@ var BufferGeometryAnalyzer = {
 
         var graph = new FaceGraph(originalPositions, precisionPoints, neighboringFacesOf);
 
-        var geometries = graph.islands.map( function( island ) {
+        var geometries = graph.floodFill().map( function( island ) {
 
             var geometry = new THREE.BufferGeometry();
 

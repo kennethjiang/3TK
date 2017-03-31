@@ -65,11 +65,8 @@
 				camera = new THREE.PerspectiveCamera( 35, window.innerWidth / window.innerHeight, 1, 15 );
 				camera.position.set( 3, 0.15, 3 );
 
-				cameraTarget = new THREE.Vector3( 0, -0.25, 0 );
-
 				scene = new THREE.Scene();
 				scene.fog = new THREE.Fog( 0x72645b, 2, 15 );
-
 
 				// Ground
 
@@ -158,6 +155,12 @@
 				stats = new Stats();
 				container.appendChild( stats.dom );
 
+				controls = new THREETK.OrbitControls( camera, renderer.domElement );
+				controls.addEventListener( 'change', render ); // remove when using animation loop
+				// enable animation loop when using damping or autorotation
+				controls.enableDamping = true;
+				controls.dampingFactor = 0.25;
+
 				//
 
 				window.addEventListener( 'resize', onWindowResize, false );
@@ -207,13 +210,6 @@
 			}
 
 			function render() {
-
-				var timer = Date.now() * 0.0005;
-
-				camera.position.x = Math.cos( timer ) * 3;
-				camera.position.z = Math.sin( timer ) * 3;
-
-				camera.lookAt( cameraTarget );
 
 				renderer.render( scene, camera );
 

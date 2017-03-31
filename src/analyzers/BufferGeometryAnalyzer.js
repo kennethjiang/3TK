@@ -19,6 +19,7 @@ function keyForTrio( array, startIndex, precisionPoints = 4 ) {
 
 }
 
+// VertexNode sounds like oxymoron, but here Vertex is in the context of Geometry, and Node is in the context of Graph programming data structure
 function VertexNode( posIndex ) {
     var self = this;
     self.neighbors = new Set();
@@ -43,6 +44,7 @@ function VertexGraph( positions, precisionPoints ) {
         return self.verticesMap[ keyForTrio(positions, posIndex, precisionPoints) ];
     };
 
+    // Iterate position array to create the graph
     for (var faceIndex = 0; faceIndex < positions.length; faceIndex += 9) { // a face is 9 positions - 3 vertex x 3 positions
 
         var verticesOfCurrentFace = [];

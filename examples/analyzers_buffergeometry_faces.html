@@ -87,7 +87,7 @@
 				loader.load( './models/stl/ascii/slotted_disk.stl', function ( geometry ) {
 
                     var highlighColors = [ {r:1, g:0, b:0}, {r:0, g:1, b:0}, {r:0, g:0, b:1} ];
-                    var sortedNomrals = THREETK.BufferGeometryAnalyzer.sortedNormalsByFaceArea( geometry, 4 );
+                    var planes = THREETK.BufferGeometryAnalyzer.sortedPlanesByArea( geometry, 4 );
 
                     var colors = [];
                     for ( var i = 0; i < geometry.attributes.position.array.length; i++ ) {
@@ -96,7 +96,7 @@
 
                     for ( var i = 0; i < 3; i++ ) {
 
-                        for ( var index of sortedNomrals[i].indices ) {
+                        for ( var index of planes[i].faceIndices ) {
 
                             colors[index] = highlighColors[i].r;
                             colors[index+1] = highlighColors[i].g;

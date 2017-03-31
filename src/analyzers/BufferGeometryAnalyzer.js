@@ -49,7 +49,7 @@ function FaceGraph( positions, precisionPoints, neighboringFacesOf) {
     // this is the key to understand the code
     var faceArray= [];
 
-    for (var faceIndex = 0; faceIndex <= positions.length-8; faceIndex += 9) { // a face is 9 positions - 3 vertex x 3 positions
+    for (var faceIndex = 0; faceIndex < positions.length-8; faceIndex += 9) { // a face is 9 positions - 3 vertex x 3 positions
         var neighboringFaces = neighboringFacesOf( faceIndex );
         // Remove self from neighbors
         neighboringFaces.delete( faceIndex/9 );
@@ -191,29 +191,61 @@ var BufferGeometryAnalyzer = {
         return geometries;
     },
 
-    normalToFaceMap: function( geometry, precisionPoint=4 ) {
+    /**
+     * planes: groups of contious faces that share the same normal
+     */
+    planes: function( geometry, precisionPoints=4 ) {
+
+        if (geometry.index) {
+            throw new Error('Can not handle indexed faces right now. Open an issue to request it at "https://github.com/kennethjiang/3tk/issues/new"');
+        }
 
         if (geometry.attributes.normal === undefined) {
-            throw new Error('BufferGeometry is missing normals. Can not calculate the map');
+            throw new Error('BufferGeometry is missing normals. Can not calculate planes');
         }
         var normals = geometry.attributes.normal.array;
+        var positions = geometry.attributes.position.array;
 
-        var map = new Map();
-        for (var faceIndex = 0; faceIndex < normals.length; faceIndex += 9) { // a normal is 3 floats for each vertex
+        var vertexPosMap = vertexPositionMap( positions, precisionPoints );
 
-            var key = keyForTrio(normals, faceIndex, precisionPoint ); //normals for all 3 vertices should be the same. Take the 1st one
-            if ( ! map.has( key ) ) {
-                map.set(key, { normal: normals.slice(faceIndex, faceIndex+3), indices: [faceIndex] });
-            } else {
-                map.get(key).indices.push(faceIndex);
+        // Faces are considered neighboring when 1. they share at least 1 vertex, and 2. they have the same normal
+        var neighboringFacesOf = function( faceIndex ) {
+
+            var neighboringFaces = new Set(); // Set of faceIndex that neighbors current face
+
+            var currentNormal = normals.slice(faceIndex, faceIndex+3); //normals for all 3 vertices should be the same. Take the 1st one
+
+            for ( var v = 0; v < 3; v++) { // For each vertex on the same face
+
+                var posIndex = faceIndex + v*3;
+
+                var key = keyForTrio(positions, posIndex, precisionPoints);
+                var verticesOnSamePosition = vertexPosMap[key];
+
+                // add faces correspoding to these vertices as neighbors
+                verticesOnSamePosition.filter( function( posIndex ) {
+
+                    var precision = Math.pow( 10, precisionPoints );
+                    var diff = Math.abs( Math.round( (currentNormal[0] - normals[posIndex]) * precision ) )
+                          + Math.abs( Math.round( (currentNormal[1] - normals[posIndex+1]) * precision ) )
+                        + Math.abs( Math.round( (currentNormal[2] - normals[posIndex+2]) * precision ) );
+                    return diff < 1;
+
+                }).forEach( function( posIndex ) {
+                    neighboringFaces.add( Math.floor(posIndex/9) );
+                });
             }
+
+            return neighboringFaces;
         }
 
-        return map;
+        var graph = new FaceGraph(positions, precisionPoints, neighboringFacesOf);
+
+        return graph.floodFill();
 
     },
 
-    sortedNormalsByFaceArea: function( geometry, precisionPoint=4 ) {
+    sortedPlanesByArea: function( geometry, precisionPoint=4 ) {
 
         var positions = geometry.attributes.position.array;
 
@@ -233,15 +265,12 @@ var BufferGeometryAnalyzer = {
             return cb.length();
         }
 
-        var normalMap = BufferGeometryAnalyzer.normalToFaceMap(geometry, precisionPoint);
+        var planes = BufferGeometryAnalyzer.planes(geometry, precisionPoint);
+        planes.forEach( function(plane) {
+            plane.area = plane.faceIndices.reduce( function(sum, faceIndex) { return sum + areaOfFace(faceIndex) ; }, 0);
+        });
 
-        var result = []
-        for ( var value of normalMap.values() ) {
-            value.area = value.indices.reduce(function(sum, faceIndex) {  return sum + areaOfFace(faceIndex) ; }, 0);
-            result.push(value);
-        }
-
-        return result.sort( function(a,b) { return b.area - a.area; } );
+        return planes.sort( function(a,b) { return b.area - a.area; } );
     }
 
 }

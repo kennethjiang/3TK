@@ -192,16 +192,16 @@ var BufferGeometryAnalyzer = {
     },
 
     /**
-     * planes: groups of contious faces that share the same normal
+     * surfaces: groups of contious faces that share the same normal
      */
-    planes: function( geometry, precisionPoints=4 ) {
+    surfaces: function( geometry, precisionPoints=4 ) {
 
         if (geometry.index) {
             throw new Error('Can not handle indexed faces right now. Open an issue to request it at "https://github.com/kennethjiang/3tk/issues/new"');
         }
 
         if (geometry.attributes.normal === undefined) {
-            throw new Error('BufferGeometry is missing normals. Can not calculate planes');
+            throw new Error('BufferGeometry is missing normals. Can not calculate surfaces');
         }
         var normals = geometry.attributes.normal.array;
         var positions = geometry.attributes.position.array;
@@ -265,12 +265,12 @@ var BufferGeometryAnalyzer = {
             return cb.length();
         }
 
-        var planes = BufferGeometryAnalyzer.planes(geometry, precisionPoint);
-        planes.forEach( function(plane) {
-            plane.area = plane.faceIndices.reduce( function(sum, faceIndex) { return sum + areaOfFace(faceIndex) ; }, 0);
+        var surfaces = BufferGeometryAnalyzer.surfaces(geometry, precisionPoint);
+        surfaces.forEach( function(surface) {
+            surface.area = surface.faceIndices.reduce( function(sum, faceIndex) { return sum + areaOfFace(faceIndex) ; }, 0);
         });
 
-        return planes.sort( function(a,b) { return b.area - a.area; } );
+        return surfaces.sort( function(a,b) { return b.area - a.area; } );
     }
 
 }

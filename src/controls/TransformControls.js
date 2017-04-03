@@ -595,8 +595,8 @@ function TransformControls( camera, domElement ) {
     }
 
     var changeEvent = { type: "change" };
-    var mouseDownEvent = { type: "mouseDown" };
-    var mouseUpEvent = { type: "mouseUp", mode: _mode };
+    var transformStartEvent = { type: "transformStart" };
+    var transformEndEvent = { type: "transformEnd", mode: _mode };
     var objectChangeEvent = { type: "objectChange" };
 
     var ray = new THREE.Raycaster();
@@ -857,7 +857,7 @@ function TransformControls( camera, domElement ) {
             event.preventDefault();
             event.stopPropagation();
 
-            scope.dispatchEvent( mouseDownEvent );
+            scope.dispatchEvent( transformStartEvent );
             scope.update();
 
             eye.copy( camPosition ).sub( worldPosition ).normalize();
@@ -1100,8 +1100,8 @@ function TransformControls( camera, domElement ) {
 
         if ( _dragging && ( scope.axis !== null ) ) {
 
-            mouseUpEvent.mode = _mode;
-            scope.dispatchEvent( mouseUpEvent );
+            transformEndEvent.mode = _mode;
+            scope.dispatchEvent( transformEndEvent );
 
         }
 

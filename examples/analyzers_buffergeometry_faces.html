@@ -50,8 +50,8 @@
 	</head>
 	<body>
 		<div id="info">
-            <p>Identified top 3 planes:</p>
-            <ol id="planes"></ol>
+            <p>Identified top 3 surfaces:</p>
+            <ol id="surfaces"></ol>
             <br />
 
 		</div>
@@ -153,17 +153,17 @@
                     scene.remove(mesh);
 
                     var highlighColors = [ {r:255, g:0, b:0}, {r:0, g:255, b:0}, {r:0, g:0, b:255} ];
-                    var planes = THREETK.BufferGeometryAnalyzer.sortedPlanesByArea( geometry, 3 );
+                    var surfaces = THREETK.BufferGeometryAnalyzer.sortedSurfacesByArea( geometry, 3 );
 
                     var colors = [];
                     for ( var i = 0; i < geometry.attributes.position.array.length; i++ ) {
                         colors[i] = 0.5;
                     }
 
-                    $("#planes").empty();
+                    $("#surfaces").empty();
                     for ( var i = 0; i < 3; i++ ) {
 
-                        for ( var index of planes[i].faceIndices ) {
+                        for ( var index of surfaces[i].faceIndices ) {
 
                             colors[index] = highlighColors[i].r/255;
                             colors[index+1] = highlighColors[i].g/255;
@@ -177,7 +177,7 @@
 
                         }
 
-                        $("#planes").append('<li style="color: rgb(' + highlighColors[i].r + ',' + highlighColors[i].g + ',' + highlighColors[i].b + ')">' + planes[i].area + '</li>');
+                        $("#surfaces").append('<li style="color: rgb(' + highlighColors[i].r + ',' + highlighColors[i].g + ',' + highlighColors[i].b + ')">' + surfaces[i].area + '</li>');
                     }
 
                     geometry.removeAttribute( 'color' );

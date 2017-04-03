@@ -245,7 +245,7 @@ var BufferGeometryAnalyzer = {
 
     },
 
-    sortedPlanesByArea: function( geometry, precisionPoint=4 ) {
+    sortedSurfacesByArea: function( geometry, precisionPoint=4 ) {
 
         var positions = geometry.attributes.position.array;
 

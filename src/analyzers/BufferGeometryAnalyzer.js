@@ -241,8 +241,15 @@ var BufferGeometryAnalyzer = {
 
         var graph = new FaceGraph(positions, precisionPoints, neighboringFacesOf);
 
-        return graph.floodFill();
+        var surfaces = graph.floodFill();
+        surfaces.forEach( function( surface ) {
+            surface.normal = new THREE.Vector3(
+                            normals[surface.faceIndices[0]],
+                            normals[surface.faceIndices[0]+1],
+                            normals[surface.faceIndices[0]+2]).normalize();
+        });
 
+        return surfaces;
     },
 
     sortedSurfacesByArea: function( geometry, precisionPoint=4 ) {

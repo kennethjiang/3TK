@@ -83,7 +83,6 @@
 				camera.position.set( 3, 0.15, 3 );
 
 				scene = new THREE.Scene();
-				scene.fog = new THREE.Fog( 0x72645b, 2, 15 );
 
                 loadSTL( './models/stl/ascii/slotted_disk.stl' );
 
@@ -94,7 +93,7 @@
 				// renderer
 
 				renderer = new THREE.WebGLRenderer( { antialias: true } );
-				renderer.setClearColor( scene.fog.color );
+                renderer.setClearColor( 0x888888 );
 				renderer.setPixelRatio( window.devicePixelRatio );
 				renderer.setSize( window.innerWidth, window.innerHeight );
 

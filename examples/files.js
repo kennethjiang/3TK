@@ -16,4 +16,7 @@ var files = {
     "helpers": [
         "helpers_pointer-interactions",
     ],
+    "geometries": [
+        "geometry_convex",
+    ],
 };

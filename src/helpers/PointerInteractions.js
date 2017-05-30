@@ -97,15 +97,17 @@ function PointerInteractions( domElement, camera, recursive ) {
         if (pointerDepressed) {
 
             if ( scope.draggedObject != obj ) {
-                scope.dispatchEvent( { type: 'drag', previous: scope.draggedObject, current: obj } );
+                const prevObj = scope.draggedObject;
                 scope.draggedObject = obj;
+                scope.dispatchEvent( { type: 'drag', previous: prevObj, current: obj } );
             }
 
         } else {
 
             if ( scope.hoveredObject != obj ) {
-                scope.dispatchEvent( { type: 'hover', previous: scope.hoveredObject, current: obj } );
+                const prevObj = scope.hoveredObject;
                 scope.hoveredObject = obj;
+                scope.dispatchEvent( { type: 'hover', previous: prevObj, current: obj } );
             }
 
         }
@@ -122,8 +124,9 @@ function PointerInteractions( domElement, camera, recursive ) {
 
         var obj = insertedObject(event);
         if ( scope.clickedObject != obj ) {
-            scope.dispatchEvent( { type: 'click', previous: scope.clickedObject, current: obj } );
+            const prevObj = scope.clickedObject;
             scope.clickedObject = obj;
+            scope.dispatchEvent( { type: 'click', previous: prevObj, current: obj } );
         }
 
     }
@@ -133,14 +136,14 @@ function PointerInteractions( domElement, camera, recursive ) {
         lastPointerEvent = "pointerout";
 
         if (pointerDepressed)  {
-
-            scope.dispatchEvent( { type: 'drag', previous: scope.draggedObject, current: null } );
+            const prevObj = scope.draggedObject;
             scope.draggedObject= null;
+            scope.dispatchEvent( { type: 'drag', previous: prevObj, current: null } );
 
         } else {
-
-            scope.dispatchEvent( { type: 'hover', previous: scope.hoveredObject, current: null } );
+            const prevObj = scope.hoveredObject;
             scope.hoveredObject = null;
+            scope.dispatchEvent( { type: 'hover', previous: prevObj, current: null } );
 
         }
 

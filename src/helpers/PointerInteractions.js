@@ -123,11 +123,9 @@ function PointerInteractions( domElement, camera, recursive ) {
         lastPointerEvent = "pointerup";
 
         var obj = insertedObject(event);
-        if ( scope.clickedObject != obj ) {
-            const prevObj = scope.clickedObject;
-            scope.clickedObject = obj;
-            scope.dispatchEvent( { type: 'click', previous: prevObj, current: obj } );
-        }
+        const prevObj = scope.clickedObject;
+        scope.clickedObject = obj;
+        scope.dispatchEvent( { type: 'click', previous: prevObj, current: obj } );
 
     }
 

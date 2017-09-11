@@ -108,7 +108,6 @@ function FaceGraph( positions, precisionPoints, neighboringFacesOf) {
 
 }
 
-
 var BufferGeometryAnalyzer = {
 
     /**
@@ -128,20 +127,79 @@ var BufferGeometryAnalyzer = {
         var vertexPosMap = vertexPositionMap( originalPositions, precisionPoints );
 
         var neighboringFacesOf = function( faceIndex ) {
+            // Return the next point in this face.
+            var nextPositionInFace = function( posIndex ) {
+                if (posIndex % 9 != 6) {
+                    return posIndex + 3;
+                } else {
+                    return posIndex - 6;
+                }
+            }
+
+            // Return the previous point in this face.
+            var previousPositionInFace = function( posIndex ) {
+                if (posIndex % 9 != 0) {
+                    return posIndex - 3;
+                } else {
+                    return posIndex + 6;
+                }
+            }
+
+            // Returns the unit normal of a triangular face.
+            var faceNormal = function( positions, posIndex ) {
+                return new THREE.Triangle(
+                    new THREE.Vector3().fromArray(positions, posIndex+0),
+                    new THREE.Vector3().fromArray(positions, posIndex+3),
+                    new THREE.Vector3().fromArray(positions, posIndex+6)).normal();
+            }
+
+            // Returns the angle between faces 0 to 2pi.
+            // A smaller angle indicates less encolsed space.
+            // Assumes that the common edge is posIndex1 to posIndex1+3 and
+            // posIndex2 to posIndex2-3.
+            var facesAngle = function( positions, posIndex1, posIndex2 ) {
+                var normal1 = faceNormal(originalPositions, posIndex1 - (posIndex1 % 9));
+                var normal2 = faceNormal(originalPositions, posIndex2 - (posIndex2 % 9));
+                var commonPoint1 = new THREE.Vector3().fromArray(positions, posIndex1);
+                var commonPoint2 = new THREE.Vector3().fromArray(positions, nextPositionInFace(posIndex1));
+                var edge1 = commonPoint2.clone().sub(commonPoint1);
+                var normalsAngle = normal1.angleTo(normal2); // Between 0 and pi.
+                var facesAngle = Math.PI;
+                if (normal1.clone().cross(normal2).dot(edge1) > 0) {
+                    facesAngle -= normalsAngle;
+                } else {
+                    facesAngle += normalsAngle;
+                }
+                return facesAngle;
+            }
 
             var neighboringFaces = new Set(); // Set of faceIndex that neighbors current face
-
             for ( var v = 0; v < 3; v++) { // For each vertex on the same face
 
                 var posIndex = faceIndex + v*3;
 
                 var key = keyForTrio(originalPositions, posIndex, precisionPoints);
+                var keyNext = keyForTrio(originalPositions, nextPositionInFace(posIndex), precisionPoints);
                 var verticesOnSamePosition = vertexPosMap[key];
 
                 // add faces correspoding to these vertices as neighbors
-                verticesOnSamePosition.forEach( function( posIndex ) {
-                    neighboringFaces.add( Math.floor(posIndex/9) );
+                var bestNeighbor = null;
+                var bestNeighborAngle = Infinity;
+                verticesOnSamePosition.forEach( function( newPosIndex ) {
+                    // A face is only neighboring if the edges are in
+                    // common and point in opposite directions.
+                    var newKeyPrevious = keyForTrio(originalPositions, previousPositionInFace(newPosIndex), precisionPoints);
+                    if (keyNext == newKeyPrevious) {
+                        // This neighboring face is connected.
+                        // Does it make the smallest, non-zero shape?
+                        var angle = facesAngle(originalPositions, posIndex, newPosIndex);
+                        if (angle < bestNeighborAngle && angle > 0) {
+                            bestNeighborAngle = angle;
+                            bestNeighbor = Math.floor(newPosIndex/9);
+                        }
+                    }
                 });
+                neighboringFaces.add( bestNeighbor );
             }
 
             return neighboringFaces;

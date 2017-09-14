@@ -159,7 +159,7 @@ var BufferGeometryAnalyzer = {
             return positionFromFace(faceIndex) + 3*edgeIndex;
         }
         let vertex3FromFaceEdge = function (faceIndex, edgeIndex) {
-            return new THREE.Vertex3().fromArray(originalPositions, positionFromFaceEdge(faceIndex, edgeIndex));
+            return new THREE.Vector3().fromArray(originalPositions, positionFromFaceEdge(faceIndex, edgeIndex));
         }
         let nextPositionInFace = function (posIndex) {
             if (posIndex % 9 == 6) {
@@ -192,7 +192,7 @@ var BufferGeometryAnalyzer = {
                 // The rank for the union-join algorithm on islands.
                 'rank': 0,
                 // For this island, the set of edges (position indicies) that still need connecting.
-                'frontier': new Set();
+                'frontier': new Set()
             };
             for (let edgeIndex = 0; edgeIndex < 3; edgeIndex++) {
                 let posIndex = positionFromFaceEdge(faceIndex, edgeIndex);
@@ -209,7 +209,7 @@ var BufferGeometryAnalyzer = {
                     // We'll ignore degenerate triangles.
                     let newFacePoints = new Set([key,
                                                  newKeyPrevious,
-                                                 keyForTrio(originalPositions, nextPositionInFace(newPosIndex), precisionPoints);
+                                                 keyForTrio(originalPositions, nextPositionInFace(newPosIndex), precisionPoints)
                                                 ]);
                     if (newFacePoints.size != 3) {
                         continue;
@@ -231,7 +231,7 @@ var BufferGeometryAnalyzer = {
             for (let edgeIndex = 0; edgeIndex < 3; edgeIndex++) {
                 facePoints.add(keyForTrio(originalPositions, positionFromFaceEdge(faceIndex, edgeIndex), precisionPoints));
             }
-            faces[faceIndex].degenerate = (edgeIndex.size != 3);
+            faces[faceIndex].degenerate = (facePoints.size != 3);
             if (faces[faceIndex].degenerate) {
                 // Remove all degenerate faces.
                 for (let edgeIndex = 0; edgeIndex < 3; edgeIndex++) {
@@ -325,9 +325,10 @@ var BufferGeometryAnalyzer = {
                 islands[islandIndex].push(faceIndex);
             }
         }
+        let geometries = [];
         for (let island of islands) {
 
-            var geometry = new THREE.BufferGeometry();
+            var newGeometry = new THREE.BufferGeometry();
 
             var vertices = [];
             var normals = [];
@@ -350,20 +351,20 @@ var BufferGeometryAnalyzer = {
 
                 }
 
-            });
+            }
 
-            geometry.addAttribute( 'position', new THREE.BufferAttribute( new Float32Array( vertices ), 3 ) );
+            newGeometry.addAttribute( 'position', new THREE.BufferAttribute( new Float32Array( vertices ), 3 ) );
 
             if (originalNormals) {
-                geometry.addAttribute( 'normal', new THREE.BufferAttribute( new Float32Array( normals ), 3 ) );
+                newGeometry.addAttribute( 'normal', new THREE.BufferAttribute( new Float32Array( normals ), 3 ) );
             }
 
             if (originalColors) {
-                geometry.addAttribute( 'color', new THREE.BufferAttribute( new Float32Array( colors ), 3 ) );
+                newGeometry.addAttribute( 'color', new THREE.BufferAttribute( new Float32Array( colors ), 3 ) );
             }
 
-            return geometry;
-        });
+            geometries.push(newGeometry);
+        }
 
         return geometries;
     },

@@ -309,20 +309,20 @@ var BufferGeometryAnalyzer = {
         while (unconnectedEdges.size > 0) {
             let foundOne = false;
             // Connect all forced edges.
-            for (let faceIndex = 0; faceIndex < faceCount; faceIndex++) {
-                for (let edgeIndex = 0; edgeIndex < 3; edgeIndex++) {
-                    if (faces[faceIndex].neighbors[edgeIndex] == null &&
-                        faces[faceIndex].possibleNeighbors[edgeIndex].size == 1) {
-                        connectEdge(positionFromFaceEdge(faceIndex, edgeIndex),
-                                    faces[faceIndex].possibleNeighbors[edgeIndex].keys().next().value);
-                        foundOne = true;
-                    }
+            for (let posIndex of unconnectedEdges) {
+                let faceIndex = faceFromPosition(posIndex);
+                let edgeIndex = edgeFromPosition(posIndex);
+                if (faces[faceIndex].neighbors[edgeIndex] == null &&
+                    faces[faceIndex].possibleNeighbors[edgeIndex].size == 1) {
+                    connectEdge(positionFromFaceEdge(faceIndex, edgeIndex),
+                                faces[faceIndex].possibleNeighbors[edgeIndex].keys().next().value);
+                    foundOne = true;
                 }
             }
             if (foundOne) {
                 continue;
             }
-            // By here, each possibleNeighbor list has >2 or 0 elements.
+            // By here, each possibleNeighbor list has >1 or <1 elements.
             // Get rid of the worst possibleNeighbor.
             // The worst possibleNeighbor is a splinter.
             // A splinter is two faces with a separation very close to 0 or 2 pi, ie, far from pi.

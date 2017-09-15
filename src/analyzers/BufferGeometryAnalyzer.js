@@ -128,6 +128,9 @@ var BufferGeometryAnalyzer = {
         let positionFromFace = function (faceIndex) {
             return faceIndex*9;
         }
+        let faceFromPosition = function (positionIndex) {
+            return Math.floor(positionIndex/9);
+        }
         let positionFromFaceEdge = function (faceIndex, edgeIndex) {
             return positionFromFace(faceIndex) + 3*edgeIndex;
         }
@@ -151,10 +154,18 @@ var BufferGeometryAnalyzer = {
                 return posIndex - 3;
             }
         }
+        let isFaceDegenerate = function (faceIndex) {
+            let facePoints = new Set();
+            for (let edgeIndex = 0; edgeIndex < 3; edgeIndex++) {
+                facePoints.add(keyForTrio(originalPositions, positionFromFaceEdge(faceIndex, edgeIndex), precisionPoints));
+            }
+            return facePoints.size != 3;
+        }
 
-        const faceCount = originalPositions.length/9;
+        const faceCount = originalPositions.length / 9;
         let faces = [];
         for (let faceIndex = 0; faceIndex < faceCount; faceIndex++) {
+            let degenerate = isFaceDegenerate(faceIndex);
             faces[faceIndex] = {
                 // possibleNeighbors is an array of length 3, one for each edge.
                 // edge 0 is from point a to b, edge 1 is from b to c, edge 2 is from c to a
@@ -163,14 +174,28 @@ var BufferGeometryAnalyzer = {
                 'possibleNeighbors': [new Map(), new Map(), new Map()],
                 // These are selected neighbors, null until they are found.
                 'neighbors': [null, null, null],
+                // Are all three vertices unique?
+                'degenerate': degenerate,
                 // At first, each face is an island by itself.  Later, we'll join faces.
-                'island': faceIndex,
+                'island': degenerate ? null : faceIndex,
                 // The below elements are only valid if faces[faceIndex].island = faceIndex;
                 // The rank for the union-join algorithm on islands.
-                'rank': 0,
+                'rank': degenerate ? null : 0,
                 // For this island, the set of edges (position indicies) that still need connecting.
-                'frontier': new Set()
+                'frontier': degenerate ? new Set() : new Set([
+                    positionFromFaceEdge(faceIndex, 0),
+                    positionFromFaceEdge(faceIndex, 1),
+                    positionFromFaceEdge(faceIndex, 2)
+                ])
             };
+        }
+
+        // Edges that aren't yet in a face-to-face connection.
+        let unconnectedEdges = new Set();
+        for (let faceIndex = 0; faceIndex < faceCount; faceIndex++) {
+            if (faces[faceIndex].degenerate) {
+                continue;
+            }
             for (let edgeIndex = 0; edgeIndex < 3; edgeIndex++) {
                 let posIndex = positionFromFaceEdge(faceIndex, edgeIndex);
                 let key = keyForTrio(originalPositions, posIndex, precisionPoints);
@@ -184,42 +209,13 @@ var BufferGeometryAnalyzer = {
                     }
                     // This neighboring face is connected.
                     // We'll ignore degenerate triangles.
-                    let newFacePoints = new Set([key,
-                                                 newKeyPrevious,
-                                                 keyForTrio(originalPositions, nextPositionInFace(newPosIndex), precisionPoints)
-                                                ]);
-                    if (newFacePoints.size != 3) {
+                    if (faces[faceFromPosition(newPosIndex)].degenerate) {
                         continue;
                     }
                     // We're able to connect to the edge newKey and newKeyPrevious, which is the newKeyPrevious edge.
                     faces[faceIndex].possibleNeighbors[edgeIndex].set(previousPositionInFace(newPosIndex), null);
                 }
-            }
-        }
-
-        // We have all all possible edge connections in the faces array.
-        let unconnectedEdges = new Set();
-        for (let i = 0; i < faceCount*9; i+=3) {
-            unconnectedEdges.add(i);
-        }
-
-        for (let faceIndex = 0; faceIndex < faceCount; faceIndex++) {
-            let facePoints = new Set();
-            for (let edgeIndex = 0; edgeIndex < 3; edgeIndex++) {
-                facePoints.add(keyForTrio(originalPositions, positionFromFaceEdge(faceIndex, edgeIndex), precisionPoints));
-            }
-            faces[faceIndex].degenerate = (facePoints.size != 3);
-            if (faces[faceIndex].degenerate) {
-                // Remove all degenerate faces.
-                for (let edgeIndex = 0; edgeIndex < 3; edgeIndex++) {
-                    unconnectedEdges.delete(positionFromFaceEdge(faceIndex, edgeIndex));
-                }
-                faces[faceIndex].island = null; // Not a member of any new object.
-                faces[faceIndex].possibleNeighbors = [new Map(), new Map(), new Map()]; // Can't have neighbors.
-            } else {
-                for (let edgeIndex = 0; edgeIndex < 3; edgeIndex++) {
-                    faces[faceIndex].frontier.add(positionFromFaceEdge(faceIndex, edgeIndex));
-                }
+                unconnectedEdges.add(posIndex);
             }
         }
 
@@ -230,9 +226,6 @@ var BufferGeometryAnalyzer = {
             return faces[faceIndex].island;
         }
 
-        let faceFromPosition = function (positionIndex) {
-            return Math.floor(positionIndex/9);
-        }
         let edgeFromPosition = function (positionIndex) {
             return (positionIndex % 9) / 3;
         }

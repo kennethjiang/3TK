@@ -182,8 +182,9 @@ var BufferGeometryAnalyzer = {
             faces[faceIndex] = {
                 // possibleNeighbors is an array of length 3, one for each edge.
                 // edge 0 is from point a to b, edge 1 is from b to c, edge 2 is from c to a
-                // each element is a list of position indices that could be neighbors for this face.
-                'possibleNeighbors': [new Set(), new Set(), new Set()],
+                // each element is a map of position indices to angles that could be neighbors for this face.
+                // The angle is only computed if needed, otherwise it's null.
+                'possibleNeighbors': [new Map(), new Map(), new Map()],
                 // These are selected neighbors, null until they are found.
                 'neighbors': [null, null, null],
                 // At first, each face is an island by itself.  Later, we'll join faces.
@@ -215,7 +216,7 @@ var BufferGeometryAnalyzer = {
                         continue;
                     }
                     // We're able to connect to the edge newKey and newKeyPrevious, which is the newKeyPrevious edge.
-                    faces[faceIndex].possibleNeighbors[edgeIndex].add(previousPositionInFace(newPosIndex));
+                    faces[faceIndex].possibleNeighbors[edgeIndex].set(previousPositionInFace(newPosIndex), null);
                 }
             }
         }
@@ -238,7 +239,7 @@ var BufferGeometryAnalyzer = {
                     unconnectedEdges.delete(positionFromFaceEdge(faceIndex, edgeIndex));
                 }
                 faces[faceIndex].island = null; // Not a member of any new object.
-                faces.possibleNeighbors = [[], [], []]; // Can't have neighbors.
+                faces.possibleNeighbors = [new Map(), new Map(), new Map()]; // Can't have neighbors.
             } else {
                 for (let edgeIndex = 0; edgeIndex < 3; edgeIndex++) {
                     faces[faceIndex].frontier.add(positionFromFaceEdge(faceIndex, edgeIndex));
@@ -263,7 +264,7 @@ var BufferGeometryAnalyzer = {
             let face1 = faceFromPosition(posIndex1);
             let edge1 = edgeFromPosition(posIndex1);
             // Remove posIndex1 as possible neighbor for all its neighbors.
-            for (let possibleNeighbor of faces[face1].possibleNeighbors[edge1]) {
+            for (let possibleNeighbor of faces[face1].possibleNeighbors[edge1].keys()) {
                 let possibleNeighborFace = faceFromPosition(possibleNeighbor);
                 let possibleNeighborEdge = edgeFromPosition(possibleNeighbor);
                 faces[possibleNeighborFace].possibleNeighbors[possibleNeighborEdge].delete(posIndex1);
@@ -272,7 +273,7 @@ var BufferGeometryAnalyzer = {
             let face2 = faceFromPosition(posIndex2);
             let edge2 = edgeFromPosition(posIndex2);
             // Remove posIndex2 as possible neighbor for all its neighbors.
-            for (let possibleNeighbor of faces[face2].possibleNeighbors[edge2]) {
+            for (let possibleNeighbor of faces[face2].possibleNeighbors[edge2].keys()) {
                 let possibleNeighborFace = faceFromPosition(possibleNeighbor);
                 let possibleNeighborEdge = edgeFromPosition(possibleNeighbor);
                 faces[possibleNeighborFace].possibleNeighbors[possibleNeighborEdge].delete(posIndex2);
@@ -316,7 +317,7 @@ var BufferGeometryAnalyzer = {
                         faces[faceIndex].neighbors[edgeIndex] == null &&
                         faces[faceIndex].possibleNeighbors[edgeIndex].size == 1) {
                         connectEdge(positionFromFaceEdge(faceIndex, edgeIndex),
-                                    faces[faceIndex].possibleNeighbors[edgeIndex].values().next().value);
+                                    faces[faceIndex].possibleNeighbors[edgeIndex].keys().next().value);
                     }
                 }
             }

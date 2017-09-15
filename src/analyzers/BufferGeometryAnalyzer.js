@@ -248,7 +248,7 @@ var BufferGeometryAnalyzer = {
 
         let findIsland = function(faceIndex) {
             if (faces[faceIndex].island != null && faces[faceIndex].island != faceIndex) {
-                faces[faceIndex] = findIsland(faces[faceIndex])
+                faces[faceIndex].island = findIsland(faces[faceIndex].island)
             }
             return faces[faceIndex].island;
         }
@@ -268,6 +268,7 @@ var BufferGeometryAnalyzer = {
                 let possibleNeighborEdge = edgeFromPosition(possibleNeighbor);
                 faces[possibleNeighborFace].possibleNeighbors[possibleNeighborEdge].delete(posIndex1);
             }
+            faces[face1].possibleNeighbors[edge1].clear();
             let face2 = faceFromPosition(posIndex2);
             let edge2 = edgeFromPosition(posIndex2);
             // Remove posIndex2 as possible neighbor for all its neighbors.
@@ -276,9 +277,10 @@ var BufferGeometryAnalyzer = {
                 let possibleNeighborEdge = edgeFromPosition(possibleNeighbor);
                 faces[possibleNeighborFace].possibleNeighbors[possibleNeighborEdge].delete(posIndex2);
             }
+            faces[face2].possibleNeighbors[edge2].clear();
             // Set actual neighbors.
-            faces[face1].neighbor[edge1] = posIndex2;
-            faces[face2].neighbor[edge2] = posIndex1;
+            faces[face1].neighbors[edge1] = posIndex2;
+            faces[face2].neighbors[edge2] = posIndex1;
             // Union join needed?
             let root1 = findIsland(face1);
             let root2 = findIsland(face2);
@@ -296,9 +298,15 @@ var BufferGeometryAnalyzer = {
                 for (let posIndex of faces[root1].frontier) {
                     faces[root2].frontier.add(posIndex);
                 }
-                // Only the root matters so they can be copies.
+                // Remove the newly connected edges.
+                faces[root2].frontier.delete(posIndex1);
+                faces[root2].frontier.delete(posIndex2);
+                // Only the root matters so they can be the same.
                 faces[root1].frontier = faces[root2].frontier;
             }
+            // Finally, remove from the list of edges that still need to be resolved.
+            unconnectedEdges.delete(posIndex1);
+            unconnectedEdges.delete(posIndex2);
         }
         while (unconnectedEdges.size > 0) {
             // Connect all forced edges.
@@ -308,25 +316,25 @@ var BufferGeometryAnalyzer = {
                         faces[faceIndex].neighbors[edgeIndex] == null &&
                         faces[faceIndex].possibleNeighbors[edgeIndex].size == 1) {
                         connectEdge(positionFromFaceEdge(faceIndex, edgeIndex),
-                                    faces[faceIndex].possibleNeighbors[edgeIndex][0]);
+                                    faces[faceIndex].possibleNeighbors[edgeIndex].values().next().value);
                     }
                 }
             }
         }
 
         // All done, now get all the islands.
-        var islands = {};
+        var islands = new Map();
         for (let faceIndex = 0; faceIndex < faceCount; faceIndex++) {
             let islandIndex = findIsland(faceIndex);
             if (islandIndex !== null) {
-                if (islands[islandIndex] === undefined) {
-                    islands[islandIndex] = [];
+                if (islands.get(islandIndex) === undefined) {
+                    islands.set(islandIndex, []);
                 }
-                islands[islandIndex].push(faceIndex);
+                islands.get(islandIndex).push(faceIndex);
             }
         }
         let geometries = [];
-        for (let island of islands) {
+        for (let island of islands.values()) {
 
             var newGeometry = new THREE.BufferGeometry();
 

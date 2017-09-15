@@ -108,33 +108,6 @@ function FaceGraph( positions, precisionPoints, neighboringFacesOf) {
 
 }
 
-/*// Returns the unit normal of a triangular face.
-  var faceNormal = function( positions, posIndex ) {
-  return new THREE.Triangle(
-  new THREE.Vector3().fromArray(positions, posIndex+0),
-  new THREE.Vector3().fromArray(positions, posIndex+3),
-  new THREE.Vector3().fromArray(positions, posIndex+6)).normal();
-  }
-
-  // Returns the angle between faces 0 to 2pi.
-  // A smaller angle indicates less encolsed space.
-  // Assumes that the common edge is posIndex1 to posIndex1+3 and
-  // posIndex2 to posIndex2-3.
-  var facesAngle = function( positions, posIndex1, posIndex2 ) {
-  var normal1 = faceNormal(originalPositions, posIndex1 - (posIndex1 % 9));
-  var normal2 = faceNormal(originalPositions, posIndex2 - (posIndex2 % 9));
-  var commonPoint1 = new THREE.Vector3().fromArray(positions, posIndex1);
-  var commonPoint2 = new THREE.Vector3().fromArray(positions, nextPositionInFace(posIndex1));
-  var edge1 = commonPoint2.clone().sub(commonPoint1);
-  var normalsAngle = normal1.angleTo(normal2); // Between 0 and pi.
-  var facesAngle = Math.PI;
-  if (normal1.clone().cross(normal2).dot(edge1) > 0) {
-  facesAngle -= normalsAngle;
-  } else {
-  facesAngle += normalsAngle;
-  }
-  return facesAngle;
-  }*/
 var BufferGeometryAnalyzer = {
 
     /**
@@ -158,8 +131,11 @@ var BufferGeometryAnalyzer = {
         let positionFromFaceEdge = function (faceIndex, edgeIndex) {
             return positionFromFace(faceIndex) + 3*edgeIndex;
         }
-        let vertex3FromFaceEdge = function (faceIndex, edgeIndex) {
-            return new THREE.Vector3().fromArray(originalPositions, positionFromFaceEdge(faceIndex, edgeIndex));
+        let vector3FromPosition = function (position) {
+            return new THREE.Vector3().fromArray(originalPositions, position);
+        }
+        let vector3FromFaceEdge = function (faceIndex, edgeIndex) {
+            return vector3FromPosition(positionFromFaceEdge(faceIndex, edgeIndex));
         }
         let nextPositionInFace = function (posIndex) {
             if (posIndex % 9 == 6) {
@@ -239,7 +215,7 @@ var BufferGeometryAnalyzer = {
                     unconnectedEdges.delete(positionFromFaceEdge(faceIndex, edgeIndex));
                 }
                 faces[faceIndex].island = null; // Not a member of any new object.
-                faces.possibleNeighbors = [new Map(), new Map(), new Map()]; // Can't have neighbors.
+                faces[faceIndex].possibleNeighbors = [new Map(), new Map(), new Map()]; // Can't have neighbors.
             } else {
                 for (let edgeIndex = 0; edgeIndex < 3; edgeIndex++) {
                     faces[faceIndex].frontier.add(positionFromFaceEdge(faceIndex, edgeIndex));
@@ -309,17 +285,80 @@ var BufferGeometryAnalyzer = {
             unconnectedEdges.delete(posIndex1);
             unconnectedEdges.delete(posIndex2);
         }
+        // Returns the unit normal of a triangular face.
+        var faceNormal = function(faceIndex) {
+            return new THREE.Triangle(
+                vector3FromPosition(positionFromFaceEdge(faceIndex, 0)),
+                vector3FromPosition(positionFromFaceEdge(faceIndex, 1)),
+                vector3FromPosition(positionFromFaceEdge(faceIndex, 2))).normal();
+        }
+
+        // Returns the angle between faces 0 to 2pi.
+        // A smaller angle indicates less encolsed space.
+        // Assumes that the common edge is posIndex1 to posIndex1+3 and
+        // posIndex2 to posIndex2-3.
+        var facesAngle = function(posIndex1, posIndex2) {
+            var normal1 = faceNormal(faceFromPosition(posIndex1));
+            var normal2 = faceNormal(faceFromPosition(posIndex2));
+            var commonPoint1 = vector3FromPosition(posIndex1);
+            var commonPoint2 = vector3FromPosition(nextPositionInFace(posIndex1));
+            var edge1 = commonPoint2.clone().sub(commonPoint1);
+            var normalsAngle = normal1.angleTo(normal2); // Between 0 and pi.
+            var facesAngle = Math.PI;
+            if (normal1.clone().cross(normal2).dot(edge1) > 0) {
+                facesAngle -= normalsAngle;
+            } else {
+                facesAngle += normalsAngle;
+            }
+            return facesAngle;
+        }
+
         while (unconnectedEdges.size > 0) {
+            let foundOne = false;
             // Connect all forced edges.
             for (let faceIndex = 0; faceIndex < faceCount; faceIndex++) {
                 for (let edgeIndex = 0; edgeIndex < 3; edgeIndex++) {
-                    if (!faces[faceIndex].degenerate &&
-                        faces[faceIndex].neighbors[edgeIndex] == null &&
+                    if (faces[faceIndex].neighbors[edgeIndex] == null &&
                         faces[faceIndex].possibleNeighbors[edgeIndex].size == 1) {
                         connectEdge(positionFromFaceEdge(faceIndex, edgeIndex),
                                     faces[faceIndex].possibleNeighbors[edgeIndex].keys().next().value);
+                        foundOne = true;
                     }
                 }
+            }
+            if (foundOne) {
+                continue;
+            }
+            // By here, each possibleNeighbor list has >2 or 0 elements.
+            // Get rid of the worst possibleNeighbor.
+            // The worst possibleNeighbor is a splinter.
+            // A splinter is two faces with a separation very close to 0 or 2 pi, ie, far from pi.
+            let worstPos;
+            let worstOtherPos;
+            let worstAngle = -Infinity;
+            for (let faceIndex = 0; faceIndex < faceCount; faceIndex++) {
+                for (let edgeIndex = 0; edgeIndex < 3; edgeIndex++) {
+                    for (let posIndex of faces[faceIndex].possibleNeighbors[edgeIndex].keys()) {
+                        let angle = faces[faceIndex].possibleNeighbors[edgeIndex].get(posIndex);
+                        if (angle === null) {
+                            // Compute the angle between this face and the connected face.
+                            angle = facesAngle(positionFromFaceEdge(faceIndex, edgeIndex), nextPositionInFace(posIndex));
+                            faces[faceIndex].possibleNeighbors[edgeIndex].set(posIndex, angle);
+                        }
+                        // The worst angle is the one furthest from Math.PI, a sharp angle.
+                        if (Math.abs(Math.PI - angle) > worstAngle) {
+                            worstAngle = Math.abs(Math.PI - angle);
+                            worstPos = positionFromFaceEdge(faceIndex, edgeIndex);
+                            worstOtherPos = posIndex;
+                        }
+                    }
+                }
+            }
+            if (worstAngle != -Infinity) { // This had better be true!
+                // Remove the possible neighbor in both directions.
+                faces[faceFromPosition(worstPos)].possibleNeighbors[edgeFromPosition(worstPos)].delete(worstOtherPos);
+                faces[faceFromPosition(worstOtherPos)].possibleNeighbors[edgeFromPosition(worstOtherPos)].delete(worstPos);
+                foundOne = true;
             }
         }
 

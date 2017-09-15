@@ -329,21 +329,21 @@ var BufferGeometryAnalyzer = {
             let worstPos;
             let worstOtherPos;
             let worstAngle = -Infinity;
-            for (let faceIndex = 0; faceIndex < faceCount; faceIndex++) {
-                for (let edgeIndex = 0; edgeIndex < 3; edgeIndex++) {
-                    for (let posIndex of faces[faceIndex].possibleNeighbors[edgeIndex].keys()) {
-                        let angle = faces[faceIndex].possibleNeighbors[edgeIndex].get(posIndex);
-                        if (angle === null) {
-                            // Compute the angle between this face and the connected face.
-                            angle = facesAngle(positionFromFaceEdge(faceIndex, edgeIndex), nextPositionInFace(posIndex));
-                            faces[faceIndex].possibleNeighbors[edgeIndex].set(posIndex, angle);
-                        }
-                        // The worst angle is the one furthest from Math.PI, a sharp angle.
-                        if (Math.abs(Math.PI - angle) > worstAngle) {
-                            worstAngle = Math.abs(Math.PI - angle);
-                            worstPos = positionFromFaceEdge(faceIndex, edgeIndex);
-                            worstOtherPos = posIndex;
-                        }
+            for (let posIndex of unconnectedEdges) {
+                let faceIndex = faceFromPosition(posIndex);
+                let edgeIndex = edgeFromPosition(posIndex);
+                for (let otherPosIndex of faces[faceIndex].possibleNeighbors[edgeIndex].keys()) {
+                    let angle = faces[faceIndex].possibleNeighbors[edgeIndex].get(otherPosIndex);
+                    if (angle === null) {
+                        // Compute the angle between this face and the connected face.
+                        angle = facesAngle(posIndex, nextPositionInFace(otherPosIndex));
+                        faces[faceIndex].possibleNeighbors[edgeIndex].set(otherPosIndex, angle);
+                    }
+                    // The worst angle is the one furthest from Math.PI, a sharp angle.
+                    if (Math.abs(Math.PI - angle) > worstAngle) {
+                        worstAngle = Math.abs(Math.PI - angle);
+                        worstPos = posIndex;
+                        worstOtherPos = otherPosIndex;
                     }
                 }
             }

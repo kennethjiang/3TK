@@ -125,6 +125,7 @@ var BufferGeometryAnalyzer = {
 
         var vertexPosMap = vertexPositionMap( originalPositions, precisionPoints );
 
+        const faceCount = originalPositions.length / 9;
         // Given a faceIndex (0 to faceCount-1), return position in originalPositions.
         let positionFromFace = function (faceIndex) {
             return faceIndex*9;
@@ -141,6 +142,8 @@ var BufferGeometryAnalyzer = {
         let vector3FromPosition = function (position) {
             return new THREE.Vector3().fromArray(originalPositions, position);
         }
+        // Gets the next position in the face, which is the next point
+        // unless we're at the end and then it's the first point.
         let nextPositionInFace = function (posIndex) {
             if (posIndex % 9 == 6) {
                 return posIndex - 6;
@@ -148,6 +151,9 @@ var BufferGeometryAnalyzer = {
                 return posIndex + 3;
             }
         }
+        // Gets the previous position in the face, which is the
+        // previous point unless we're at the start and then it's the
+        // last point.
         let previousPositionInFace = function (posIndex) {
             if (posIndex % 9 == 0) {
                 return posIndex + 6;
@@ -155,6 +161,9 @@ var BufferGeometryAnalyzer = {
                 return posIndex - 3;
             }
         }
+
+        // Returns true if the faceIndex (0 to faceCount-1) has two
+        // identical points in it.
         let isFaceDegenerate = function (faceIndex) {
             let facePoints = new Set();
             for (let edgeIndex = 0; edgeIndex < 3; edgeIndex++) {
@@ -163,7 +172,17 @@ var BufferGeometryAnalyzer = {
             return facePoints.size != 3;
         }
 
-        const faceCount = originalPositions.length / 9;
+        // Find the island to which this face belongs using the
+        // union-join algorithm.
+        let findIsland = function(faceIndex) {
+            if (faces[faceIndex].island != null && faces[faceIndex].island != faceIndex) {
+                faces[faceIndex].island = findIsland(faces[faceIndex].island)
+            }
+            return faces[faceIndex].island;
+        }
+
+        
+
         let faces = [];
         for (let faceIndex = 0; faceIndex < faceCount; faceIndex++) {
             let degenerate = isFaceDegenerate(faceIndex);
@@ -218,13 +237,6 @@ var BufferGeometryAnalyzer = {
                 }
                 unconnectedEdges.add(posIndex);
             }
-        }
-
-        let findIsland = function(faceIndex) {
-            if (faces[faceIndex].island != null && faces[faceIndex].island != faceIndex) {
-                faces[faceIndex].island = findIsland(faces[faceIndex].island)
-            }
-            return faces[faceIndex].island;
         }
 
         let edgeFromPosition = function (positionIndex) {

@@ -130,9 +130,13 @@ var BufferGeometryAnalyzer = {
         let positionFromFace = function (faceIndex) {
             return faceIndex*9;
         }
-        // Given an index in originalPositions, return the face (0 to number of faces).
+        // Given an index in originalPositions, return the face (0 to facecount-1).
         let faceFromPosition = function (positionIndex) {
             return Math.floor(positionIndex/9);
+        }
+        // Given an index in originalPositions, return the edge (0 to 2).
+        let edgeFromPosition = function (positionIndex) {
+            return (positionIndex % 9) / 3;
         }
         // Given a faceIndex (0 to faceCount-1) and edgeIndex (0 to 2), return position in originalPositions.
         let positionFromFaceEdge = function (faceIndex, edgeIndex) {
@@ -174,14 +178,42 @@ var BufferGeometryAnalyzer = {
 
         // Find the island to which this face belongs using the
         // union-join algorithm.
-        let findIsland = function(faceIndex) {
+        let findIsland = function (faceIndex) {
             if (faces[faceIndex].island != null && faces[faceIndex].island != faceIndex) {
                 faces[faceIndex].island = findIsland(faces[faceIndex].island)
             }
             return faces[faceIndex].island;
         }
-
-        
+        // Join the islands to which face1 and face2 belong.  This
+        // also joins their frontiers.  Returns the new joined root,
+        // for convenience.
+        let joinIslands = function (face1, face2) {
+            // Union join needed?
+            let root1 = findIsland(face1);
+            let root2 = findIsland(face2);
+            let newRoot = root1;
+            if (root1 != root2) {
+                // Yes, need to join.
+                if (faces[root1].rank < faces[root2].rank) {
+                    faces[root1].island = root2;
+                    newRoot = root2;
+                } else if (faces[root2].rank < faces[root1].rank) {
+                    faces[root2].island = root1;
+                    newRoot = root1;
+                } else {
+                    faces[root2].island = root1;
+                    faces[root1].rank++;
+                    newRoot = root1;
+                }
+                // Union of the frontier, just make one set for both
+                // roots.
+                for (let posIndex of faces[root1].frontier) {
+                    faces[root2].frontier.add(posIndex);
+                }
+                faces[root1].frontier = faces[root2].frontier;
+            }
+            return newRoot;
+        }
 
         let faces = [];
         for (let faceIndex = 0; faceIndex < faceCount; faceIndex++) {
@@ -239,10 +271,10 @@ var BufferGeometryAnalyzer = {
             }
         }
 
-        let edgeFromPosition = function (positionIndex) {
-            return (positionIndex % 9) / 3;
-        }
-        let connectEdge = function(posIndex1, posIndex2) {
+        // Set the face-edge at posIndex2 to be the neighbor of the
+        // face-edge at posIndex1.  This function should also be run
+        // with arguments swapped to make the connection symmetric.
+        let setNeighbor = function (posIndex1, posIndex2) {
             let face1 = faceFromPosition(posIndex1);
             let edge1 = edgeFromPosition(posIndex1);
             // Remove posIndex1 as possible neighbor for all its neighbors.
@@ -251,66 +283,44 @@ var BufferGeometryAnalyzer = {
                 let possibleNeighborEdge = edgeFromPosition(possibleNeighbor);
                 faces[possibleNeighborFace].possibleNeighbors[possibleNeighborEdge].delete(posIndex1);
             }
+            // Remove all neighbors of posIndex1
             faces[face1].possibleNeighbors[edge1].clear();
-            let face2 = faceFromPosition(posIndex2);
-            let edge2 = edgeFromPosition(posIndex2);
-            // Remove posIndex2 as possible neighbor for all its neighbors.
-            for (let possibleNeighbor of faces[face2].possibleNeighbors[edge2].keys()) {
-                let possibleNeighborFace = faceFromPosition(possibleNeighbor);
-                let possibleNeighborEdge = edgeFromPosition(possibleNeighbor);
-                faces[possibleNeighborFace].possibleNeighbors[possibleNeighborEdge].delete(posIndex2);
-            }
-            faces[face2].possibleNeighbors[edge2].clear();
-            // Set actual neighbors.
+            // Set actual neighbor.
             faces[face1].neighbors[edge1] = posIndex2;
-            faces[face2].neighbors[edge2] = posIndex1;
-            // Union join needed?
-            let root1 = findIsland(face1);
-            let root2 = findIsland(face2);
-            if (root1 != root2) {
-                // Yes, need to join.
-                if (faces[root1].rank < faces[root2].rank) {
-                    faces[root1].island = root2;
-                } else if (faces[root2].rank < faces[root1].rank) {
-                    faces[root2].island = root1;
-                } else {
-                    faces[root2].island = root1;
-                    faces[root1].rank++;
-                }
-                // Union of the frontier.
-                for (let posIndex of faces[root1].frontier) {
-                    faces[root2].frontier.add(posIndex);
-                }
-                // Only the root matters so they can be the same.
-                faces[root1].frontier = faces[root2].frontier;
-            }
+        }
+        // Connect the face-edges as posIndex1 and posIndex2.  This
+        // also updates the unconnectedEdges Set and the frontier.
+        let connectEdge = function(posIndex1, posIndex2) {
+            setNeighbor(posIndex1, posIndex2);
+            setNeighbor(posIndex2, posIndex1);
+
+            let islandIndex = joinIslands(faceFromPosition(posIndex1), faceFromPosition(posIndex2));
             // Remove the newly connected edges from the frontier.
-            faces[root2].frontier.delete(posIndex1);
-            faces[root2].frontier.delete(posIndex2);
+            faces[islandIndex].frontier.delete(posIndex1);
+            faces[islandIndex].frontier.delete(posIndex2);
             // Finally, remove from the set of edges that still need to be resolved.
             unconnectedEdges.delete(posIndex1);
             unconnectedEdges.delete(posIndex2);
         }
         // Returns the unit normal of a triangular face.
-        var faceNormal = function(faceIndex) {
+        let faceNormal = function(faceIndex) {
             return new THREE.Triangle(
                 vector3FromPosition(positionFromFaceEdge(faceIndex, 0)),
                 vector3FromPosition(positionFromFaceEdge(faceIndex, 1)),
                 vector3FromPosition(positionFromFaceEdge(faceIndex, 2))).normal();
         }
-
         // Returns the angle between faces 0 to 2pi.
-        // A smaller angle indicates less encolsed space.
+        // A smaller angle indicates less enclosed space.
         // Assumes that the common edge is posIndex1 to posIndex1+3 and
         // posIndex2 to posIndex2-3.
-        var facesAngle = function(posIndex1, posIndex2) {
-            var normal1 = faceNormal(faceFromPosition(posIndex1));
-            var normal2 = faceNormal(faceFromPosition(posIndex2));
-            var commonPoint1 = vector3FromPosition(posIndex1);
-            var commonPoint2 = vector3FromPosition(nextPositionInFace(posIndex1));
-            var edge1 = commonPoint2.clone().sub(commonPoint1);
-            var normalsAngle = normal1.angleTo(normal2); // Between 0 and pi.
-            var facesAngle = Math.PI;
+        let facesAngle = function(posIndex1, posIndex2) {
+            let normal1 = faceNormal(faceFromPosition(posIndex1));
+            let normal2 = faceNormal(faceFromPosition(posIndex2));
+            let commonPoint1 = vector3FromPosition(posIndex1);
+            let commonPoint2 = vector3FromPosition(nextPositionInFace(posIndex1));
+            let edge1 = commonPoint2.clone().sub(commonPoint1);
+            let normalsAngle = normal1.angleTo(normal2); // Between 0 and pi.
+            let facesAngle = Math.PI;
             if (normal1.clone().cross(normal2).dot(edge1) > 0) {
                 facesAngle -= normalsAngle;
             } else {
@@ -321,7 +331,7 @@ var BufferGeometryAnalyzer = {
 
         while (unconnectedEdges.size > 0) {
             let foundOne = false;
-            // Connect all forced edges.
+            // Connect all edges that have just one neighbor.
             for (let posIndex of unconnectedEdges) {
                 let faceIndex = faceFromPosition(posIndex);
                 let edgeIndex = edgeFromPosition(posIndex);
@@ -339,15 +349,17 @@ var BufferGeometryAnalyzer = {
             // island.  This makes for shapes that are smaller and better split.
             let visitedIslands = new Set();
             for (let posIndex of unconnectedEdges) {
-                let faceIndex = faceFromPosition(posIndex);
-                let islandIndex = findIsland(faceIndex);
+                let islandIndex = findIsland(faceFromPosition(posIndex));
                 if (!visitedIslands.has(islandIndex)) {
-                    visitedIslands.add(islandIndex);
+                    // This is an unchecked island, now we look for
+                    // connectable edges on the frontier.
+                    visitedIslands.add(islandIndex); // Mark as visited.
                     for (let posIndex of faces[islandIndex].frontier) {
                         let faceIndex = faceFromPosition(posIndex);
                         let edgeIndex = edgeFromPosition(posIndex);
                         for (let neighborPosIndex of faces[faceIndex].possibleNeighbors[edgeIndex].keys()) {
                             if (faces[islandIndex].frontier.has(neighborPosIndex)) {
+                                // Two frontier edges that can be connected.
                                 connectEdge(posIndex, neighborPosIndex);
                                 foundOne = true;
                             }
@@ -358,10 +370,13 @@ var BufferGeometryAnalyzer = {
             if (foundOne) {
                 continue;
             }
-            // By here, each possibleNeighbor list has >1 or <1 elements.
-            // Get rid of the worst possibleNeighbor.
-            // The worst possibleNeighbor is a splinter.
-            // A splinter is two faces with a separation very close to 0 or 2 pi, ie, far from pi.
+            // By here, each possibleNeighbor list has >1 or <1
+            // elements.  Get rid of the worst possibleNeighbor.  The
+            // worst possibleNeighbor is a splinter.  A splinter is
+            // two faces with a separation very close to 0 or 2 pi,
+            // ie, far from pi.  We don't expect those to be in a
+            // properly built shape so they are usually an indication
+            // of two shapes sharing a face.
             let worstPos;
             let worstOtherPos;
             let worstAngle = -Infinity;
@@ -397,11 +412,13 @@ var BufferGeometryAnalyzer = {
             let islandIndex = findIsland(faceIndex);
             if (islandIndex !== null) {
                 if (islands.get(islandIndex) === undefined) {
+                    // Haven't seen this island yet so add a new face list.
                     islands.set(islandIndex, []);
                 }
                 islands.get(islandIndex).push(faceIndex);
             }
         }
+
         let geometries = [];
         for (let island of islands.values()) {
 

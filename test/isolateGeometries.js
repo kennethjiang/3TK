@@ -26,7 +26,8 @@ describe("isolatedGeometries", function() {
         testFile("edge_connected_tetrahedrons.stl", 2);
     });
 
-    /*it("Big object: Dinosaur Jump", function() {
+    it("Big object: Dinosaur Jump", function() {
+        this.timeout(10000);
         testFile("DINOSAUR_JUMP.stl", 1);
-    });*/
+    });
 });

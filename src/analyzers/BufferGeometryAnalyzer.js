@@ -385,7 +385,7 @@ var BufferGeometryAnalyzer = {
             }
             // By here, each possibleNeighbor list has >1 or <1
             // elements.  Get rid of the worst possibleNeighbor.  The
-            // worst possibleNeighbor is a splinter.  A splinter is
+            // worst possibleNeighbor is a sliver.  A sliver is
             // two faces with a separation very close to 0 or 2 pi,
             // ie, far from pi.  We don't expect those to be in a
             // properly built shape so they are usually an indication

@@ -125,20 +125,21 @@ var BufferGeometryAnalyzer = {
 
         var vertexPosMap = vertexPositionMap( originalPositions, precisionPoints );
 
+        // Given a faceIndex (0 to faceCount-1), return position in originalPositions.
         let positionFromFace = function (faceIndex) {
             return faceIndex*9;
         }
+        // Given an index in originalPositions, return the face (0 to number of faces).
         let faceFromPosition = function (positionIndex) {
             return Math.floor(positionIndex/9);
         }
+        // Given a faceIndex (0 to faceCount-1) and edgeIndex (0 to 2), return position in originalPositions.
         let positionFromFaceEdge = function (faceIndex, edgeIndex) {
             return positionFromFace(faceIndex) + 3*edgeIndex;
         }
+        // Given index in originalPositions, return a Vector3 of that point.
         let vector3FromPosition = function (position) {
             return new THREE.Vector3().fromArray(originalPositions, position);
-        }
-        let vector3FromFaceEdge = function (faceIndex, edgeIndex) {
-            return vector3FromPosition(positionFromFaceEdge(faceIndex, edgeIndex));
         }
         let nextPositionInFace = function (posIndex) {
             if (posIndex % 9 == 6) {
@@ -268,13 +269,13 @@ var BufferGeometryAnalyzer = {
                 for (let posIndex of faces[root1].frontier) {
                     faces[root2].frontier.add(posIndex);
                 }
-                // Remove the newly connected edges.
-                faces[root2].frontier.delete(posIndex1);
-                faces[root2].frontier.delete(posIndex2);
                 // Only the root matters so they can be the same.
                 faces[root1].frontier = faces[root2].frontier;
             }
-            // Finally, remove from the list of edges that still need to be resolved.
+            // Remove the newly connected edges from the frontier.
+            faces[root2].frontier.delete(posIndex1);
+            faces[root2].frontier.delete(posIndex2);
+            // Finally, remove from the set of edges that still need to be resolved.
             unconnectedEdges.delete(posIndex1);
             unconnectedEdges.delete(posIndex2);
         }
@@ -317,6 +318,29 @@ var BufferGeometryAnalyzer = {
                     connectEdge(positionFromFaceEdge(faceIndex, edgeIndex),
                                 faces[faceIndex].possibleNeighbors[edgeIndex].keys().next().value);
                     foundOne = true;
+                }
+            }
+            if (foundOne) {
+                continue;
+            }
+            // Try to join faces that are on the frontier of an
+            // island.  This makes for shapes that are smaller and better split.
+            let visitedIslands = new Set();
+            for (let posIndex of unconnectedEdges) {
+                let faceIndex = faceFromPosition(posIndex);
+                let islandIndex = findIsland(faceIndex);
+                if (!visitedIslands.has(islandIndex)) {
+                    visitedIslands.add(islandIndex);
+                    for (let posIndex of faces[islandIndex].frontier) {
+                        let faceIndex = faceFromPosition(posIndex);
+                        let edgeIndex = edgeFromPosition(posIndex);
+                        for (let neighborPosIndex of faces[faceIndex].possibleNeighbors[edgeIndex].keys()) {
+                            if (faces[islandIndex].frontier.has(neighborPosIndex)) {
+                                connectEdge(posIndex, neighborPosIndex);
+                                foundOne = true;
+                            }
+                        }
+                    }
                 }
             }
             if (foundOne) {

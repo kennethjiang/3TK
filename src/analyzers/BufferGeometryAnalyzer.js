@@ -118,7 +118,7 @@ var BufferGeometryAnalyzer = {
      * Description: Seperator Geometry with unconnected islands into their own Geometries
      *
      * parameters:
-     *   - precisionPoints: number of decimal points, e.g. 4 for epsilon of 0.0001. 2 vertices are considered "the same" when they are with the distance defined by precisionPoints
+     *   - precisionPoints: number of decimal points, e.g. 4 for epsilon of 0.0001. 2 vertices are considered "the same" when they are with the distance defined by precisionPoints.  -1 for full precision
      */
 
     isolatedGeometries: function ( geometry, precisionPoints=-1 ) {

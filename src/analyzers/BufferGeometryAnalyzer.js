@@ -11,11 +11,14 @@ import * as THREE from 'three'
  */
 function keyForTrio( array, startIndex, precisionPoints = 4 ) {
 
-        let [v1, v2, v3] = [ array[startIndex], array[startIndex+1], array[startIndex+2] ];
+    let [v1, v2, v3] = [ array[startIndex], array[startIndex+1], array[startIndex+2] ];
+    if (precisionPoints >= 0) {
 
         var precision = Math.pow( 10, precisionPoints );
+        return Math.round( v1 * precision ) + '_' + Math.round( v2 * precision ) + '_' + Math.round( v3 * precision );
+    } else {
         return v1 + '_' + v2 + '_' + v3;
-
+    }
 }
 
 /**
@@ -118,7 +121,7 @@ var BufferGeometryAnalyzer = {
      *   - precisionPoints: number of decimal points, e.g. 4 for epsilon of 0.0001. 2 vertices are considered "the same" when they are with the distance defined by precisionPoints
      */
 
-    isolatedGeometries: function ( geometry, precisionPoints=4 ) {
+    isolatedGeometries: function ( geometry, precisionPoints=-1 ) {
         var originalPositions = geometry.attributes.position.array;
         var originalNormals = geometry.attributes.normal !== undefined ? geometry.attributes.normal.array : undefined;
         var originalColors = geometry.attributes.color !== undefined ? geometry.attributes.color.array : undefined;

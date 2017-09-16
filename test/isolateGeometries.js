@@ -25,4 +25,8 @@ describe("isolatedGeometries", function() {
     it("2 tetrahedrons that share an edge", function() {
         testFile("edge_connected_tetrahedrons.stl", 2);
     });
+
+    /*it("Big object: Dinosaur Jump", function() {
+        testFile("DINOSAUR_JUMP.stl", 1);
+    });*/
 });

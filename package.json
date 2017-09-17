@@ -1,6 +1,6 @@
 {
   "name": "3tk",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Three.js Toolkit",
   "author": "Kenneth Jiang <kenneth.jiang@gmail.com>",
   "license": "MIT",
@@ -44,6 +44,8 @@
     "eslint": "^3.12.2",
     "http-server": "^0.9.0",
     "istanbul": "^0.4.5",
+    "jsdom": "^11.2.0",
+    "jsdom-global": "^3.0.2",
     "livereload": "^0.6.2",
     "mkdirp": "^0.5.1",
     "mocha": "^3.2.0",

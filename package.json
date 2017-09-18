@@ -1,6 +1,6 @@
 {
   "name": "3tk",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "Three.js Toolkit",
   "author": "Kenneth Jiang <kenneth.jiang@gmail.com>",
   "license": "MIT",
@@ -40,6 +40,7 @@
     "babel-preset-es2015": "^6.18.0",
     "babel-register": "^6.18.0",
     "babelrc-rollup": "^3.0.0",
+    "chai": "^4.1.2",
     "dat.gui": "^0.6.1",
     "eslint": "^3.12.2",
     "http-server": "^0.9.0",

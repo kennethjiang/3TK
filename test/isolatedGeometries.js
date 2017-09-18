@@ -26,6 +26,18 @@ describe("isolatedGeometries", function() {
         testFile("edge_connected_tetrahedrons.stl", 2);
     });
 
+    it("27 cubes in 3 by 3 by 3 formation", function() {
+        testFile("rubix.stl", 27);
+    });
+
+    it("27 cubes in 3 by 3 by 3 formation on an angle", function() {
+        testFile("twisted_rubix.stl", 27);
+    });
+
+    it("27 cubes in 3 by 3 by 3 formation with facets in lightly shuffled order", function() {
+        testFile("shuffled_rubix.stl", 27);
+    });
+
     it("Big object: Dinosaur Jump", function() {
         this.timeout(10000);
         testFile("DINOSAUR_JUMP.stl", 1);

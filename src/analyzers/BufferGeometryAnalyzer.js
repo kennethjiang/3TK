@@ -404,8 +404,8 @@ var BufferGeometryAnalyzer = {
                         faces[faceIndex].possibleNeighbors[edgeIndex].set(otherPosIndex, angle);
                     }
                     // The worst angle is the one furthest from Math.PI, a sharp angle.
-                    if (Math.abs(Math.PI - angle) > worstAngle) {
-                        worstAngle = Math.abs(Math.PI - angle);
+                    if (angle > worstAngle) {
+                        worstAngle = angle;
                         worstPos = posIndex;
                         worstOtherPos = otherPosIndex;
                     }

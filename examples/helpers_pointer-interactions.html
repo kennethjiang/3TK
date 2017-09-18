@@ -178,6 +178,9 @@
 		}
 
         function objectClicked( event ) {
+            if (event.current === event.previous) {
+                return;
+            }
 
             if (event.current) {
                 event.current.material.color.setHex( 0xff00ff );

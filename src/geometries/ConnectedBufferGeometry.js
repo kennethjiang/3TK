@@ -64,24 +64,21 @@ class ConnectedBufferGeometry extends THREE.BufferGeometry {
         let originalPositions = this.getAttribute('position').array;
         return new THREE.Vector3().fromArray(originalPositions, position);
     }
+    // Gets the position of an adjacent vertex in the face.  If direction is +3, go forward.  If -3, go to previous.
+    otherPositionInFace(posIndex, direction) {
+        let faceDifference = this.faceFromPosition(posIndex + direction) - this.faceFromPosition(posIndex);
+        return posIndex + direction - this.positionFromFace(faceDifference);
+    }
     // Gets the next position in the face, which is the next point
     // unless we're at the end and then it's the first point.
     nextPositionInFace(posIndex) {
-        if (posIndex % 9 == 6) {
-            return posIndex - 6;
-        } else {
-            return posIndex + 3;
-        }
+        return this.otherPositionInFace(posIndex, 3);
     }
     // Gets the previous position in the face, which is the
     // previous point unless we're at the start and then it's the
     // last point.
     previousPositionInFace(posIndex) {
-        if (posIndex % 9 == 0) {
-            return posIndex + 6;
-        } else {
-            return posIndex - 3;
-        }
+        return this.otherPositionInFace(posIndex, -3);
     }
 
     // Recalculate the neighbors.
@@ -404,6 +401,32 @@ class ConnectedBufferGeometry extends THREE.BufferGeometry {
         }
 
         return geometries;
+    }
+
+    /* Given the face and edge index, split that edge at the point
+       where it crosses the plane.
+
+       If the edge doesn't cross the plane, do nothing.
+
+       If the edge crosses the plane, split the face into two faces.
+       The face on the positive side of the plane is left in place and
+       the other face is added to the end of the faces array.  The
+       neighboring face is adjusted and a new neighbor is made, too.
+       this.neighbors and this.islands are updated.
+    */
+    splitFace(faceIndex, edgeIndex, plane) {
+        let position = this.positionFromFaceEdge(faceIndex, edgeIndex);
+        let edgeStart = this.vector3FromPosition(position);
+        let edgeEnd = this.vector3FromPosition(this.nextPositionInFace(position));
+        let edge = new THREE.Line(edgeStart, edgeEnd);
+        let intersectionPoint = plane.intersectLine(edge);
+        if (intersectionPoint === undefined ||
+            intersectionPoint.equals(edgeStart) ||
+            intersectionPoint.equals(edgeEnd)) {
+            return;
+        }
+
+        //let
     }
 }
 

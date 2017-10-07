@@ -562,6 +562,14 @@ class ConnectedBufferGeometry extends THREE.BufferGeometry {
                                 neighborNextPosition/3);
             this.neighbors[nextPosition/3] = (positions.length/3)-1-3;
             this.neighbors[neighborNextPosition/3] = (positions.length/3)-1;
+            // Update the islands.
+            this.islands.get(reverseIslands[this.faceFromPosition(position)]).push(
+                this.faceFromPosition(positions.length-18));
+            this.islands.get(reverseIslands[this.faceFromPosition(neighborPosition)]).push(
+                this.faceFromPosition(positions.length-9));
+            // Update the reverseIslands.
+            reverseIslands[this.faceFromPosition(positions.length-18)].set(reverseIslands[this.faceFromPosition(position)]);
+            reverseIslands[this.faceFromPosition(positions.length- 9)].set(reverseIslands[this.faceFromPosition(neighborPosition)]);
         }
     }
 }

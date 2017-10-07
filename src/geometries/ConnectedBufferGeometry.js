@@ -403,30 +403,166 @@ class ConnectedBufferGeometry extends THREE.BufferGeometry {
         return geometries;
     }
 
-    /* Given the face and edge index, split that edge at the point
-       where it crosses the plane.
-
-       If the edge doesn't cross the plane, do nothing.
-
-       If the edge crosses the plane, split the face into two faces.
-       The face on the positive side of the plane is left in place and
-       the other face is added to the end of the faces array.  The
-       neighboring face is adjusted and a new neighbor is made, too.
-       this.neighbors and this.islands are updated.
-    */
-    splitFace(faceIndex, edgeIndex, plane) {
-        let position = this.positionFromFaceEdge(faceIndex, edgeIndex);
-        let edgeStart = this.vector3FromPosition(position);
-        let edgeEnd = this.vector3FromPosition(this.nextPositionInFace(position));
-        let edge = new THREE.Line(edgeStart, edgeEnd);
-        let intersectionPoint = plane.intersectLine(edge);
-        if (intersectionPoint === undefined ||
-            intersectionPoint.equals(edgeStart) ||
-            intersectionPoint.equals(edgeEnd)) {
-            return;
+    // Split all edges in this geometry so that there are no edges
+    // that cross the plane.
+    split(plane) {
+        let positions = Array.from(this.getAttribute('position').array);
+        let normals = this.getAttribute('normal') &&  Array.from(this.getAttribute('normal').array);
+        let colors = this.getAttribute('color') && Array.from(this.getAttribute('color').array);
+        let reverseIslands = new Map();
+        for (let [root, faces] of this.islands) {
+            for (let face of faces) {
+                reverseIslands.set(face, root);
+            }
         }
+        /* Given the face and edge index, split that edge at the point
+           where it crosses the plane.
 
-        //let
+           If the edge doesn't cross the plane, do nothing.
+
+           If the edge crosses the plane, split the face into two
+           faces.  One face is modified in place, the other is added
+           to the end of the faces array.  The neighboring face is
+           adjusted and a new neighbor is made, too.  this.neighbors
+           and this.islands are updated.
+        */
+        let splitFace = (faceIndex, edgeIndex, plane) => {
+            let position = this.positionFromFaceEdge(faceIndex, edgeIndex);
+            let edgeStart = this.vector3FromPosition(position);
+            let nextPosition = this.nextPositionInFace(position);
+            let edgeEnd = this.vector3FromPosition(nextPosition);
+            let previousPosition = this.previousPositionInFace(position);
+            let thirdVertex = this.vector3FromPosition(previousPosition);
+
+            let neighborPosition = this.neighbors[position/3]*3;
+            let neighborEdgeStart = this.vector3FromPosition(neighborPosition);
+            let neighborNextPosition = this.nextPositionInFace(neighborPosition);
+            let neighborEdgeEnd = this.vector3FromPosition(neighborNextPosition);
+            let neighborPreviousPosition = this.previousPositionInFace(neighborPosition);
+            let neighborThirdVertex = this.vector3FromPosition(neighborPreviousPosition);
+
+            let edge = new THREE.Line(edgeStart, edgeEnd);
+            let intersectionPoint = plane.intersectLine(edge);
+            if (intersectionPoint === undefined ||
+                intersectionPoint.equals(edgeStart) ||
+                intersectionPoint.equals(edgeEnd)) {
+                return;
+            }
+
+            // The intersectionPoint replaces edgeEnd.
+            positions[nextPosition  ] = intersectionPoint.x;
+            positions[nextPosition+1] = intersectionPoint.y;
+            positions[nextPosition+2] = intersectionPoint.z;
+            // A new face needs to be added for the other side of the triangle.
+            positions.push(intersectionPoint.x,
+                           intersectionPoint.y,
+                           intersectionPoint.z,
+                           edgeEnd.x,
+                           edgeEnd.y,
+                           edgeEnd.z,
+                           thirdVertex.x,
+                           thirdVertex.y,
+                           thirdVertex.z);
+            // The intersectionPoint also replaces neighborEdgeEnd.
+            positions[neighborNextPosition  ] = intersectionPoint.x;
+            positions[neighborNextPosition+1] = intersectionPoint.y;
+            positions[neighborNextPosition+2] = intersectionPoint.z;
+            // A new face needs to be added for the neighbor other side.
+            positions.push(intersectionPoint.x,
+                           intersectionPoint.y,
+                           intersectionPoint.z,
+                           neighborEdgeEnd.x,
+                           neighborEdgeEnd.y,
+                           neighborEdgeEnd.z,
+                           neighborThirdVertex.x,
+                           neighborThirdVertex.y,
+                           neighborThirdVertex.z);
+            if (colors) {
+                // The new face colors must be added.
+                let alpha = edgeStart.distanceTo(intersectionPoint) / edgeStart.distanceTo(edgeEnd);
+                let startColor = new THREE.Color(colors[position  ],
+                                                 colors[position+1],
+                                                 colors[position+2]);
+                let endColor = new THREE.Color(colors[nextPosition  ],
+                                               colors[nextPosition+1],
+                                               colors[nextPosition+2]);
+                let intersectionColor = startColor.clone().lerp(endColor, alpha);
+                colors.push(intersectionColor.r,
+                            intersectionColor.g,
+                            intersectionColor.b,
+                            colors[nextPosition  ],
+                            colors[nextPosition+1],
+                            colors[nextPosition+2],
+                            colors[previousPosition  ],
+                            colors[previousPosition+1],
+                            colors[previousPosition+2]);
+                // The original face's colors must be adjusted.
+                colors[nextPosition  ] = intersectionColor.r;
+                colors[nextPosition+1] = intersectionColor.g;
+                colors[nextPosition+2] = intersectionColor.b;
+                // Same for neighbor.
+                colors.push(intersectionColor.r,
+                            intersectionColor.g,
+                            intersectionColor.b,
+                            colors[neighborNextPosition  ],
+                            colors[neighborNextPosition+1],
+                            colors[neighborNextPosition+2],
+                            colors[neighborPreviousPosition  ],
+                            colors[neighborPreviousPosition+1],
+                            colors[neighborPreviousPosition+2]);
+                // The original neighbor's face's colors must be adjusted.
+                colors[neighborNextPosition  ] = intersectionColor.r;
+                colors[neighborNextPosition+1] = intersectionColor.g;
+                colors[neighborNextPosition+2] = intersectionColor.b;
+            }
+            if (normals) {
+                // The new face's normals must be added.
+                let alpha = edgeStart.distanceTo(intersectionPoint) / edgeStart.distanceTo(edgeEnd);
+                let startNormal = new THREE.Vector3(normals[position  ],
+                                                    normals[position+1],
+                                                    normals[position+2]);
+                let endNormal = new THREE.Vector3(normals[nextPosition  ],
+                                                  normals[nextPosition+1],
+                                                  normals[nextPosition+2]);
+                let intersectionNormal = startNormal.clone().lerp(endNormal, alpha).normalize();
+                normals.push(intersectionNormal.x,
+                             intersectionNormal.y,
+                             intersectionNormal.z,
+                             normals[nextPosition  ],
+                             normals[nextPosition+1],
+                             normals[nextPosition+2],
+                             normals[previousPosition  ],
+                             normals[previousPosition+1],
+                             normals[previousPosition+2]);
+                // The original face's normals must be adjusted.
+                normals[nextPosition  ] = intersectionNormal.x;
+                normals[nextPosition+1] = intersectionNormal.y;
+                normals[nextPosition+2] = intersectionNormal.z;
+                // Same for neighbor.
+                normals.push(intersectionNormal.x,
+                             intersectionNormal.y,
+                             intersectionNormal.z,
+                             normals[neighborNextPosition  ],
+                             normals[neighborNextPosition+1],
+                             normals[neighborNextPosition+2],
+                             normals[neighborPreviousPosition  ],
+                             normals[neighborPreviousPosition+1],
+                             normals[neighborPreviousPosition+2]);
+                // The original face's normals must be adjusted.
+                normals[neighborNextPosition  ] = intersectionNormal.x;
+                normals[neighborNextPosition+1] = intersectionNormal.y;
+                normals[neighborNextPosition+2] = intersectionNormal.z;
+            }
+            // Add to this.neighbors
+            this.neighbors.push(neighborPosition/3,
+                                this.neighbors[nextPosition/3],
+                                nextPosition/3);
+            this.neighbors.push(position/3,
+                                this.neighbors[neighborNextPosition/3],
+                                neighborNextPosition/3);
+            this.neighbors[nextPosition/3] = (positions.length/3)-1-3;
+            this.neighbors[neighborNextPosition/3] = (positions.length/3)-1;
+        }
     }
 }
 

@@ -1,4 +1,4 @@
-import { BufferGeometryAnalyzer, STLLoader } from '..';
+import { BufferGeometryAnalyzer, ConnectedBufferGeometry, STLLoader } from '..';
 import { expect } from 'chai';
 import fs from 'fs';
 

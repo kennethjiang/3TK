@@ -5,9 +5,9 @@ import fs from 'fs';
 
 describe("connectedBufferGeometry", function() {
     it("Constructor", function() {
-        let stl = fs.readFileSync("test/lungo.stl", {encoding: "ascii"});
+        let stl = fs.readFileSync("test/DINOSAUR_JUMP.stl", {encoding: "ascii"});
         let geometry = new STLLoader().parse(stl);
         let x = new ConnectedBufferGeometry().fromBufferGeometry(geometry);
-        console.log(x);
+        let y = x.isolatedBufferGeometries();
     });
 });

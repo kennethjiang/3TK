@@ -1,29 +1,29 @@
 solid Onshape
-  facet normal -1 -4.36659e-17 0
+  facet normal -1 0 0
     outer loop
-      vertex 0 0 23.4088
-      vertex -1.73472e-15 39.7272 0
+      vertex 0 0 10
+      vertex 0 30 0
       vertex 0 0 0
     endloop
   endfacet
-  facet normal 0.599344 0.406379 0.689669
+  facet normal 0.428571 0.285714 0.857143
     outer loop
-      vertex 0 0 23.4088
-      vertex 26.9366 0 0
-      vertex -1.73472e-15 39.7272 0
+      vertex 0 0 10
+      vertex 20 0 0
+      vertex 0 30 0
     endloop
   endfacet
   facet normal 0 -1 0
     outer loop
-      vertex 0 0 23.4088
+      vertex 0 0 10
       vertex 0 0 0
-      vertex 26.9366 0 0
+      vertex 20 0 0
     endloop
   endfacet
   facet normal 0 0 -1
     outer loop
-      vertex -1.73472e-15 39.7272 0
-      vertex 26.9366 0 0
+      vertex 0 30 0
+      vertex 20 0 0
       vertex 0 0 0
     endloop
   endfacet

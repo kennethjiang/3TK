@@ -60,9 +60,9 @@ class ConnectedBufferGeometry extends THREE.BufferGeometry {
         return this.positionFromFace(faceIndex) + 3*edgeIndex;
     }
     // Given index in originalPositions, return a Vector3 of that point.
-    vector3FromPosition(position) {
-        let originalPositions = this.getAttribute('position').array;
-        return new THREE.Vector3().fromArray(originalPositions, position);
+    vector3FromPosition(position, positions) {
+        positions = positions || this.getAttribute('position').array;
+        return new THREE.Vector3().fromArray(positions, position);
     }
     // Gets the position of an adjacent vertex in the face.  If direction is +3, go forward.  If -3, go to previous.
     otherPositionInFace(posIndex, direction) {
@@ -428,21 +428,23 @@ class ConnectedBufferGeometry extends THREE.BufferGeometry {
         */
         let splitFace = (faceIndex, edgeIndex, plane) => {
             let position = this.positionFromFaceEdge(faceIndex, edgeIndex);
-            let edgeStart = this.vector3FromPosition(position);
+            let edgeStart = this.vector3FromPosition(position, positions);
             let nextPosition = this.nextPositionInFace(position);
-            let edgeEnd = this.vector3FromPosition(nextPosition);
+            let edgeEnd = this.vector3FromPosition(nextPosition, positions);
             let previousPosition = this.previousPositionInFace(position);
-            let thirdVertex = this.vector3FromPosition(previousPosition);
+            let thirdVertex = this.vector3FromPosition(previousPosition, positions);
 
             let neighborPosition = this.neighbors[position/3]*3;
-            let neighborEdgeStart = this.vector3FromPosition(neighborPosition);
+            let neighborEdgeStart = this.vector3FromPosition(neighborPosition, positions);
             let neighborNextPosition = this.nextPositionInFace(neighborPosition);
-            let neighborEdgeEnd = this.vector3FromPosition(neighborNextPosition);
+            let neighborEdgeEnd = this.vector3FromPosition(neighborNextPosition, positions);
             let neighborPreviousPosition = this.previousPositionInFace(neighborPosition);
-            let neighborThirdVertex = this.vector3FromPosition(neighborPreviousPosition);
+            let neighborThirdVertex = this.vector3FromPosition(neighborPreviousPosition, positions);
 
-            let edge = new THREE.Line(edgeStart, edgeEnd);
+            let edge = new THREE.Line3(edgeStart, edgeEnd);
+            console.log("edge is " + JSON.stringify(edge));
             let intersectionPoint = plane.intersectLine(edge);
+            console.log("intersectionPoint is " + JSON.stringify(intersectionPoint));
             if (intersectionPoint === undefined ||
                 intersectionPoint.equals(edgeStart) ||
                 intersectionPoint.equals(edgeEnd)) {
@@ -554,22 +556,41 @@ class ConnectedBufferGeometry extends THREE.BufferGeometry {
                 normals[neighborNextPosition+2] = intersectionNormal.z;
             }
             // Add to this.neighbors
+            let newNeighborIndex = this.neighbors.length;
             this.neighbors.push(neighborPosition/3,
                                 this.neighbors[nextPosition/3],
                                 nextPosition/3);
             this.neighbors.push(position/3,
                                 this.neighbors[neighborNextPosition/3],
                                 neighborNextPosition/3);
-            this.neighbors[nextPosition/3] = (positions.length/3)-1-3;
-            this.neighbors[neighborNextPosition/3] = (positions.length/3)-1;
+            // Make the above assignments symmetric.
+            for (let i = newNeighborIndex; i < newNeighborIndex+6; i++) {
+                this.neighbors[this.neighbors[i]] = i;
+            }
             // Update the islands.
-            this.islands.get(reverseIslands[this.faceFromPosition(position)]).push(
+            this.islands.get(reverseIslands.get(this.faceFromPosition(position))).push(
                 this.faceFromPosition(positions.length-18));
-            this.islands.get(reverseIslands[this.faceFromPosition(neighborPosition)]).push(
+            this.islands.get(reverseIslands.get(this.faceFromPosition(neighborPosition))).push(
                 this.faceFromPosition(positions.length-9));
             // Update the reverseIslands.
-            reverseIslands[this.faceFromPosition(positions.length-18)].set(reverseIslands[this.faceFromPosition(position)]);
-            reverseIslands[this.faceFromPosition(positions.length- 9)].set(reverseIslands[this.faceFromPosition(neighborPosition)]);
+            reverseIslands.set(this.faceFromPosition(positions.length-18),
+                               reverseIslands.get(this.faceFromPosition(position)));
+            reverseIslands.set(this.faceFromPosition(positions.length- 9),
+                               reverseIslands.get(this.faceFromPosition(neighborPosition)));
+            console.log(positions);
+        }
+        for (let f = 0; f < positions.length/9; f++) {
+            for (let e = 0; e < 3; e++) {
+                splitFace(f, e, plane);
+            }
+        }
+        // Now rewrite the attributes.
+        this.addAttribute("position", new THREE.BufferAttribute(new Float32Array(positions), 3));
+        if (normals) {
+            this.addAttribute("normal", new THREE.BufferAttribute(new Float32Array(normals), 3));
+        }
+        if (colors) {
+            this.addAttribute("color", new THREE.BufferAttribute(new Float32Array(colors), 3));
         }
     }
 }

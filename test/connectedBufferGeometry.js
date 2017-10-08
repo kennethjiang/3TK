@@ -11,14 +11,22 @@ describe("ConnectedBufferGeometry", function() {
             let connectedBufferGeometry = new ConnectedBufferGeometry().fromBufferGeometry(geometry);
             let newGeometries = connectedBufferGeometry.isolatedBufferGeometries(geometry);
             expect(newGeometries.length).to.equal(expectedGeometriesCount);
+
+            connectedBufferGeometry.split(new THREE.Plane(new THREE.Vector3(1,0,0), -5));
+            let oldNeighbors = connectedBufferGeometry.neighbors.slice(0);
+            connectedBufferGeometry.neighbors = [];
+            connectedBufferGeometry.findNeighbors();
+            let newNeighbors = connectedBufferGeometry.neighbors.slice(0);
+            expect([1,2,3]).to.have.ordered.members([1,2,3]);
+            expect(oldNeighbors).to.have.ordered.members(newNeighbors);
         }
 
         it("Simple tetrahedron", function() {
             testFile("tetrahedron.stl", 1);
         });
 
-        it("Split simple tetrahedron", function() {
-            let filename = "tetrahedron.stl";
+        /*it("Split simple tetrahedron", function() {
+            let filename = "edge_connected_tetrahedrons.stl";
             let stl = fs.readFileSync("test/" + filename, {encoding: "ascii"});
             let geometry = new STLLoader().parse(stl);
             let connectedBufferGeometry = new ConnectedBufferGeometry().fromBufferGeometry(geometry);
@@ -31,8 +39,8 @@ describe("ConnectedBufferGeometry", function() {
             obj.add(mesh);
             console.log(new Buffer(new STLBinaryExporter().parse(obj).buffer));
             fs.writeFileSync("new_tetra1.stl", new Buffer(new STLBinaryExporter().parse(obj).buffer), 'binary');
-        });
-/*
+        });*/
+
         it("Split ruler with degenerate facets", function() {
             testFile("lungo.stl", 2);
         });
@@ -60,6 +68,6 @@ describe("ConnectedBufferGeometry", function() {
         it("Big object: Dinosaur Jump", function() {
             this.timeout(10000);
             testFile("DINOSAUR_JUMP.stl", 1);
-        });*/
+        });
     });
 });

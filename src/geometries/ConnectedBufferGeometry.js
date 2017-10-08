@@ -4,8 +4,8 @@ import * as THREE from 'three';
 // neighbor information.  The neighbor information maintains which
 // face is connected to which face by which edge.
 class ConnectedBufferGeometry extends THREE.BufferGeometry {
-    constructor() {
-        super();
+    constructor(...args) {
+        super(...args);
         // neighbors has length the same as faces*3.  Each element is
         // the position of the neighboring faceEdge.
         this.neighbors = [];
@@ -13,14 +13,36 @@ class ConnectedBufferGeometry extends THREE.BufferGeometry {
     }
 
     fromBufferGeometry(bufferGeometry) {
-        this.copy(bufferGeometry);
+        let ret = this.copy(bufferGeometry);
         this.findNeighbors();
-        return this;
+        return ret;
+    }
+
+    clone(...args) {
+        let cbg = super.clone(...args);
+        cbg.neighbors = this.neighbors.slice(0);
+        cbg.islands = this.islands.slice(0);
+    }
+
+    merge(...args) {
+        let ret = super.merge(...args);
+        this.findNeighbors();
+        return ret;
     }
 
     keyForTrio(startIndex, precisionPoints = 4) {
         let array = this.getAttribute('position').array;
         let [v1, v2, v3] = [array[startIndex], array[startIndex+1], array[startIndex+2]];
+        if (precisionPoints >= 0) {
+            var precision = Math.pow( 10, precisionPoints );
+            return Math.round( v1 * precision ) + '_' + Math.round( v2 * precision ) + '_' + Math.round( v3 * precision );
+        } else {
+            return v1 + '_' + v2 + '_' + v3;
+        }
+    }
+
+    keyForVector3(vector3, precisionPoints = 4) {
+        let [v1, v2, v3] = [vector3.x, vector3.y, vector3.z];
         if (precisionPoints >= 0) {
             var precision = Math.pow( 10, precisionPoints );
             return Math.round( v1 * precision ) + '_' + Math.round( v2 * precision ) + '_' + Math.round( v3 * precision );
@@ -86,7 +108,7 @@ class ConnectedBufferGeometry extends THREE.BufferGeometry {
     // Each element is the connection between
     findNeighbors() {
         let originalPositions = this.getAttribute('position').array;
-        let precisionPoints = -1;
+        let precisionPoints = 4;
         var vertexPosMap = this.vertexPositionMap(precisionPoints);
 
         const faceCount = originalPositions.length / 9;
@@ -442,15 +464,12 @@ class ConnectedBufferGeometry extends THREE.BufferGeometry {
             let neighborThirdVertex = this.vector3FromPosition(neighborPreviousPosition, positions);
 
             let edge = new THREE.Line3(edgeStart, edgeEnd);
-            console.log("edge is " + JSON.stringify(edge));
             let intersectionPoint = plane.intersectLine(edge);
-            console.log("intersectionPoint is " + JSON.stringify(intersectionPoint));
             if (intersectionPoint === undefined ||
-                intersectionPoint.equals(edgeStart) ||
-                intersectionPoint.equals(edgeEnd)) {
+                this.keyForVector3(intersectionPoint) == this.keyForVector3(edgeStart) ||
+                this.keyForVector3(intersectionPoint) == this.keyForVector3(edgeEnd)) {
                 return;
             }
-
             // The intersectionPoint replaces edgeEnd.
             positions[nextPosition  ] = intersectionPoint.x;
             positions[nextPosition+1] = intersectionPoint.y;
@@ -577,7 +596,6 @@ class ConnectedBufferGeometry extends THREE.BufferGeometry {
                                reverseIslands.get(this.faceFromPosition(position)));
             reverseIslands.set(this.faceFromPosition(positions.length- 9),
                                reverseIslands.get(this.faceFromPosition(neighborPosition)));
-            console.log(positions);
         }
         for (let f = 0; f < positions.length/9; f++) {
             for (let e = 0; e < 3; e++) {
@@ -585,12 +603,15 @@ class ConnectedBufferGeometry extends THREE.BufferGeometry {
             }
         }
         // Now rewrite the attributes.
-        this.addAttribute("position", new THREE.BufferAttribute(new Float32Array(positions), 3));
+        this.getAttribute("position").setArray(new Float32Array(positions), 3);
+        this.getAttribute("position").needsUpdate = true;
         if (normals) {
-            this.addAttribute("normal", new THREE.BufferAttribute(new Float32Array(normals), 3));
+            this.getAttribute("normal").setArray(new Float32Array(normals), 3);
+            this.getAttribute("normal").needsUpdate = true;
         }
         if (colors) {
-            this.addAttribute("color", new THREE.BufferAttribute(new Float32Array(colors), 3));
+            this.getAttribute("color").setArray(new Float32Array(colors), 3);
+            this.getAttribute("color").needsUpdate = true;
         }
     }
 }

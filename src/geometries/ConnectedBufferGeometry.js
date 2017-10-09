@@ -506,7 +506,7 @@ class ConnectedBufferGeometry extends THREE.BufferGeometry {
             let neighborPreviousPosition = this.previousPositionInFace(neighborPosition);
             let [neighborEdgeStart, neighborEdgeEnd, neighborThirdVertex] =
                 this.vector3sFromPositions([neighborPosition, neighborNextPosition, neighborPreviousPosition],
-                                          positions);
+                                           positions);
 
             let edge = new THREE.Line3(edgeStart, edgeEnd);
             let intersectionPoint = plane.intersectLine(edge);

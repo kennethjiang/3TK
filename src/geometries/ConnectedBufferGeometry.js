@@ -427,7 +427,7 @@ class ConnectedBufferGeometry extends THREE.BufferGeometry {
 
     // Split all edges in this geometry so that there are no edges
     // that cross the plane.
-    split(plane) {
+    splitFaces(plane) {
         let positions = Array.from(this.getAttribute('position').array);
         let normals = this.getAttribute('normal') &&  Array.from(this.getAttribute('normal').array);
         let colors = this.getAttribute('color') && Array.from(this.getAttribute('color').array);

@@ -12,34 +12,21 @@ describe("ConnectedBufferGeometry", function() {
             let newGeometries = connectedBufferGeometry.isolatedBufferGeometries(geometry);
             expect(newGeometries.length).to.equal(expectedGeometriesCount);
 
-            connectedBufferGeometry.split(new THREE.Plane(new THREE.Vector3(1,0,0), -5));
+            connectedBufferGeometry.splitFaces(new THREE.Plane(new THREE.Vector3(1,0,0), -5));
             let oldNeighbors = connectedBufferGeometry.neighbors.slice(0);
             connectedBufferGeometry.neighbors = [];
             connectedBufferGeometry.findNeighbors();
             let newNeighbors = connectedBufferGeometry.neighbors.slice(0);
             expect([1,2,3]).to.have.ordered.members([1,2,3]);
             expect(oldNeighbors).to.have.ordered.members(newNeighbors);
+            newGeometries = connectedBufferGeometry.isolatedBufferGeometries(geometry);
+            // isolating after split should not affect the result.
+            expect(newGeometries.length).to.equal(expectedGeometriesCount);
         }
 
         it("Simple tetrahedron", function() {
             testFile("tetrahedron.stl", 1);
         });
-
-        /*it("Split simple tetrahedron", function() {
-            let filename = "edge_connected_tetrahedrons.stl";
-            let stl = fs.readFileSync("test/" + filename, {encoding: "ascii"});
-            let geometry = new STLLoader().parse(stl);
-            let connectedBufferGeometry = new ConnectedBufferGeometry().fromBufferGeometry(geometry);
-            console.log(connectedBufferGeometry);
-            connectedBufferGeometry.split(new THREE.Plane(new THREE.Vector3(1,0,0), -1));
-            
-            console.log(connectedBufferGeometry);
-            let mesh = new THREE.Mesh(connectedBufferGeometry);
-            let obj = new THREE.Object3D();
-            obj.add(mesh);
-            console.log(new Buffer(new STLBinaryExporter().parse(obj).buffer));
-            fs.writeFileSync("new_tetra1.stl", new Buffer(new STLBinaryExporter().parse(obj).buffer), 'binary');
-        });*/
 
         it("Split ruler with degenerate facets", function() {
             testFile("lungo.stl", 2);

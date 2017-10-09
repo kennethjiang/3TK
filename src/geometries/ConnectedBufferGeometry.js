@@ -239,20 +239,14 @@ class ConnectedBufferGeometry extends THREE.BufferGeometry {
             unconnectedEdges.delete(posIndex1);
             unconnectedEdges.delete(posIndex2);
         }
-        // Returns the unit normal of a triangular face.
-        let faceNormal = (faceIndex) => {
-            return new THREE.Triangle(
-                this.vector3FromPosition(this.positionFromFaceEdge(faceIndex, 0)),
-                this.vector3FromPosition(this.positionFromFaceEdge(faceIndex, 1)),
-                this.vector3FromPosition(this.positionFromFaceEdge(faceIndex, 2))).normal();
-        }
+
         // Returns the angle between faces 0 to 2pi.
         // A smaller angle indicates less enclosed space.
         // Assumes that the common edge is posIndex1 to posIndex1+3 and
         // posIndex2 to posIndex2-3.
         let facesAngle = (posIndex1, posIndex2) => {
-            let normal1 = faceNormal(this.faceFromPosition(posIndex1));
-            let normal2 = faceNormal(this.faceFromPosition(posIndex2));
+            let normal1 = this.faceNormal(this.faceFromPosition(posIndex1));
+            let normal2 = this.faceNormal(this.faceFromPosition(posIndex2));
             let commonPoint1 = this.vector3FromPosition(posIndex1);
             let commonPoint2 = this.vector3FromPosition(this.nextPositionInFace(posIndex1));
             let edge1 = commonPoint2.clone().sub(commonPoint1);
@@ -471,6 +465,13 @@ class ConnectedBufferGeometry extends THREE.BufferGeometry {
         }
     }
 
+    // Returns the unit normal of a triangular face.
+    faceNormal(faceIndex) {
+        let [p0, p1, p2] =
+            this.positionsFromFace(faceIndex, 0);
+        return new THREE.Triangle(...this.vector3sFromPositions([p0, p1, p2])).normal();
+    }
+
     // Split all edges in this geometry so that there are no edges
     // that cross the plane.
     splitFaces(plane) {
@@ -607,6 +608,37 @@ class ConnectedBufferGeometry extends THREE.BufferGeometry {
             this.getAttribute("color").needsUpdate = true;
         }
     }
+
+    // Merge faces where possible.
+    //
+    // Look for edges where one of the points could be moved to the
+    // other point without affecting the shape.  Either:
+    //
+    // All the faces attached to the vertex to move are coplanar, so
+    // it's a face in the middle of a flat spot, or:
+    //
+    // It's between two edges that are colinear and the two sides are
+    // all coplanar faces.  It's a point in the middle of the shape's
+    // edge.
+    //
+    // The faces that are merged out of existence are left in place as
+    // degenerate faces.
+    /*mergeFaces() {
+        const faceCount = originalPositions.length / 9;
+        for (let faceIndex = 0; faceIndex < faceCount; faceIndex++) {
+            for (let edgeIndex = 0; edgeIndex < 3; edgeIndex++) {
+                let [position, nextPosition, previousPosition] =
+                    this.positionsFromFace(faceIndex, edgeIndex);
+                let startPosition = position;
+                let [edgeStart, edgeEnd, thirdVertex] =
+                    this.vector3sFromPositions([position, nextPosition, previousPosition],
+                                               positions);
+                let normal = 
+                let neighborPosition = getNeighborPosition(edgeEnd)
+                
+            }
+        }
+    }*/
 }
 
 export { ConnectedBufferGeometry };

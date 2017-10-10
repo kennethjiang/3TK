@@ -51,7 +51,7 @@ class ConnectedBufferGeometry extends THREE.BufferGeometry {
         }
     }
 
-    vertexPositionMap(precisionPoints) {
+    vertexPositionMap(precisionPoints = 4) {
         let map = new Map();
         let positions = this.getAttribute('position').array;
         for (var posIndex = 0; posIndex < positions.length; posIndex += 3) {
@@ -114,8 +114,7 @@ class ConnectedBufferGeometry extends THREE.BufferGeometry {
     // Each element is the connection between
     findNeighbors() {
         let originalPositions = this.getAttribute('position').array;
-        let precisionPoints = 4;
-        var vertexPosMap = this.vertexPositionMap(precisionPoints);
+        var vertexPosMap = this.vertexPositionMap();
 
         const faceCount = originalPositions.length / 9;
 
@@ -124,7 +123,7 @@ class ConnectedBufferGeometry extends THREE.BufferGeometry {
         let isFaceDegenerate = (faceIndex) => {
             let facePoints = new Set();
             for (let edgeIndex = 0; edgeIndex < 3; edgeIndex++) {
-                facePoints.add(this.keyForTrio(this.positionFromFaceEdge(faceIndex, edgeIndex), precisionPoints));
+                facePoints.add(this.keyForTrio(this.positionFromFaceEdge(faceIndex, edgeIndex)));
             }
             return facePoints.size != 3;
         }
@@ -190,12 +189,12 @@ class ConnectedBufferGeometry extends THREE.BufferGeometry {
             }
             for (let edgeIndex = 0; edgeIndex < 3; edgeIndex++) {
                 let posIndex = this.positionFromFaceEdge(faceIndex, edgeIndex);
-                let key = this.keyForTrio(posIndex, precisionPoints);
-                let keyNext = this.keyForTrio(this.nextPositionInFace(posIndex), precisionPoints);
+                let key = this.keyForTrio(posIndex);
+                let keyNext = this.keyForTrio(this.nextPositionInFace(posIndex));
                 for (let newPosIndex of vertexPosMap.get(key)) {
                     // A face is only neighboring if the edges are in
                     // common and point in opposite directions.
-                    let newKeyPrevious = this.keyForTrio(this.previousPositionInFace(newPosIndex), precisionPoints);
+                    let newKeyPrevious = this.keyForTrio(this.previousPositionInFace(newPosIndex));
                     if (keyNext != newKeyPrevious) {
                         continue;
                     }
@@ -623,22 +622,54 @@ class ConnectedBufferGeometry extends THREE.BufferGeometry {
     //
     // The faces that are merged out of existence are left in place as
     // degenerate faces.
-    /*mergeFaces() {
-        const faceCount = originalPositions.length / 9;
+    mergeFaces() {
+        const faceCount = this.getAttribute('position').array.length / 9;
         for (let faceIndex = 0; faceIndex < faceCount; faceIndex++) {
             for (let edgeIndex = 0; edgeIndex < 3; edgeIndex++) {
-                let [position, nextPosition, previousPosition] =
-                    this.positionsFromFace(faceIndex, edgeIndex);
-                let startPosition = position;
-                let [edgeStart, edgeEnd, thirdVertex] =
-                    this.vector3sFromPositions([position, nextPosition, previousPosition],
-                                               positions);
-                let normal = 
-                let neighborPosition = getNeighborPosition(edgeEnd)
-                
+                let normalsCount = 1;
+                let startPosition =
+                    this.positionFromFaceEdge(faceIndex, edgeIndex);
+                let start = this.vector3FromPosition(startPosition);
+                let currentNormal = this.faceNormal(this.faceFromPosition(startPosition));
+                let currentPosition = startPosition;
+                do {
+                    let nextPosition = this.nextPositionInFace(currentPosition);
+                    currentPosition = this.getNeighborPosition(nextPosition);
+                    nextPosition = this.nextPositionInFace(currentPosition);
+                    let neighborNormal = this.faceNormal(this.faceFromPosition(currentPosition));
+                    if (this.keyForVector3(currentNormal) != this.keyForVector3(neighborNormal)) {
+                        // New normal.
+                        if (this.keyForVector3(
+                                new THREE.Line(
+                                    start,
+                                    this.vector3FromPosition(nextPosition)).delta().normalize()) ==
+                            this.keyForVector3(
+                                new THREE.Line(
+                                    this.vector3ForPosition(nextPosition),
+                                    this.vector3ForPosition(currentPosition)).delta().normalize()) &&
+                            normalsCount < 2) {
+                            // New normal after a colinear edge so it's okay.
+                            currentNormal = neighborNormal;
+                            normalsCount++;
+                        } else {
+                            // This merge can't happen.
+                            break;
+                        }
+                    }
+                } while (currentPosition != startPosition);
+                if (currentPosition == startPosition) {
+                    // We didn't break so this triangle should be collapsable.
+                    let array = this.getAttribute('position').array;
+                    do {
+                        let nextPosition = this.nextPositionInFace(currentPosition);
+                        this.setPointsInArray([start], array, nextPosition);
+                        currentPosition = this.getNeighborPosition(nextPosition);
+                    } while (currentPosition != startPosition);
+                    this.getAttribute('position').needsUpdate = true;
+                }
             }
         }
-    }*/
+    }
 }
 
 export { ConnectedBufferGeometry };

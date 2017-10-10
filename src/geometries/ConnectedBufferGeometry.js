@@ -640,13 +640,13 @@ class ConnectedBufferGeometry extends THREE.BufferGeometry {
                     if (this.keyForVector3(currentNormal) != this.keyForVector3(neighborNormal)) {
                         // New normal.
                         if (this.keyForVector3(
-                                new THREE.Line(
+                                new THREE.Line3(
                                     start,
                                     this.vector3FromPosition(nextPosition)).delta().normalize()) ==
                             this.keyForVector3(
-                                new THREE.Line(
-                                    this.vector3ForPosition(nextPosition),
-                                    this.vector3ForPosition(currentPosition)).delta().normalize()) &&
+                                new THREE.Line3(
+                                    this.vector3FromPosition(nextPosition),
+                                    this.vector3FromPosition(currentPosition)).delta().normalize()) &&
                             normalsCount < 2) {
                             // New normal after a colinear edge so it's okay.
                             currentNormal = neighborNormal;

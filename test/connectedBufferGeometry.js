@@ -1,4 +1,4 @@
-import { BufferGeometryAnalyzer, ConnectedBufferGeometry, STLLoader, STLBinaryExporter } from '..';
+import { BufferGeometryAnalyzer, ConnectedBufferGeometry, STLLoader, STLExporter } from '..';
 import { expect } from 'chai';
 import fs from 'fs';
 import * as THREE from 'three';
@@ -28,6 +28,22 @@ describe("ConnectedBufferGeometry", function() {
             testFile("tetrahedron.stl", 1);
         });
 
+        it("Split simple tetrahedron", function() {
+            let filename = "tetrahedron.stl";
+            let stl = fs.readFileSync("test/" + filename, {encoding: "ascii"});
+            let geometry = new STLLoader().parse(stl);
+            let connectedBufferGeometry = new ConnectedBufferGeometry().fromBufferGeometry(geometry);
+            console.log(connectedBufferGeometry);
+            connectedBufferGeometry.splitFaces(new THREE.Plane(new THREE.Vector3(1,0,0), -1));
+            connectedBufferGeometry.mergeFaces();
+            
+            console.log(connectedBufferGeometry);
+            let mesh = new THREE.Mesh(connectedBufferGeometry);
+            let obj = new THREE.Object3D();
+            obj.add(mesh);
+            fs.writeFileSync("new_tetra1.stl", new Buffer(new STLExporter().parse(obj)), 'binary');
+        });
+/*
         it("Split ruler with degenerate facets", function() {
             testFile("lungo.stl", 2);
         });
@@ -55,6 +71,6 @@ describe("ConnectedBufferGeometry", function() {
         it("Big object: Dinosaur Jump", function() {
             this.timeout(10000);
             testFile("DINOSAUR_JUMP.stl", 1);
-        });
+        });*/
     });
 });

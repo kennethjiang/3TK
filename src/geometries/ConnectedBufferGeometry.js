@@ -109,6 +109,16 @@ class ConnectedBufferGeometry extends THREE.BufferGeometry {
         return this.otherPositionInFace(posIndex, -3);
     }
 
+    // Returns true if the faceIndex (0 to faceCount-1) has two
+    // identical points in it.
+    isFaceDegenerate(faceIndex) {
+        let facePoints = new Set();
+        for (let edgeIndex = 0; edgeIndex < 3; edgeIndex++) {
+            facePoints.add(this.keyForTrio(this.positionFromFaceEdge(faceIndex, edgeIndex)));
+        }
+        return facePoints.size != 3;
+    }
+
     // Recalculate the neighbors.
     // this.neighbors will be an array with length 3 times the number of faces.
     // Each element is the connection between
@@ -162,7 +172,7 @@ class ConnectedBufferGeometry extends THREE.BufferGeometry {
 
         let faces = [];
         for (let faceIndex = 0; faceIndex < faceCount; faceIndex++) {
-            let degenerate = isFaceDegenerate(faceIndex);
+            let degenerate = this.isFaceDegenerate(faceIndex);
             faces[faceIndex] = {
                 // possibleNeighbors is an array of length 3, one for each edge.
                 // edge 0 is from point a to b, edge 1 is from b to c, edge 2 is from c to a
@@ -624,37 +634,51 @@ class ConnectedBufferGeometry extends THREE.BufferGeometry {
     // degenerate faces.
     mergeFaces() {
         const faceCount = this.getAttribute('position').array.length / 9;
+        let degeneratesCreated = 0;
         for (let faceIndex = 0; faceIndex < faceCount; faceIndex++) {
+            if (this.isFaceDegenerate(faceIndex)) {
+                // Skip it, we're going to remove it later anyway.
+                //console.log("degenerate");
+                continue;
+            }
             for (let edgeIndex = 0; edgeIndex < 3; edgeIndex++) {
-                let normalsCount = 1;
-                let startPosition =
-                    this.positionFromFaceEdge(faceIndex, edgeIndex);
+                let startPosition = this.positionFromFaceEdge(faceIndex, edgeIndex);
                 let start = this.vector3FromPosition(startPosition);
                 let currentNormal = this.faceNormal(this.faceFromPosition(startPosition));
                 let currentPosition = startPosition;
+                //console.log("starting face");
+                let normalsCount = 1;
+                let nextPosition = this.nextPositionInFace(currentPosition);
+                let next = this.vector3FromPosition(nextPosition);
                 do {
-                    let nextPosition = this.nextPositionInFace(currentPosition);
                     currentPosition = this.getNeighborPosition(nextPosition);
                     nextPosition = this.nextPositionInFace(currentPosition);
                     let neighborNormal = this.faceNormal(this.faceFromPosition(currentPosition));
-                    if (this.keyForVector3(currentNormal) != this.keyForVector3(neighborNormal)) {
-                        // New normal.
-                        if (this.keyForVector3(
-                                new THREE.Line3(
-                                    start,
-                                    this.vector3FromPosition(nextPosition)).delta().normalize()) ==
-                            this.keyForVector3(
-                                new THREE.Line3(
-                                    this.vector3FromPosition(nextPosition),
-                                    this.vector3FromPosition(currentPosition)).delta().normalize()) &&
-                            normalsCount < 2) {
-                            // New normal after a colinear edge so it's okay.
-                            currentNormal = neighborNormal;
-                            normalsCount++;
-                        } else {
-                            // This merge can't happen.
-                            break;
-                        }
+                    if (neighborNormal.length() == 0) {
+                        // Ignore the normal of degenerate faces.
+                        continue;
+                    }
+                    if (this.keyForVector3(currentNormal) == this.keyForVector3(neighborNormal)) {
+                        // Same normal so it's coplanar so we can ignore it.
+                        continue;
+                    }
+                    // The new face has a different normal.  This point might be on an edge.
+                    let current = this.vector3FromPosition(currentPosition);
+                    //console.log("current " + current.x + "," + current.y + "," + current.z);
+                    //console.log("new normal is "+ this.keyForVector3(neighborNormal));
+                    // New normal.
+                    if (this.keyForVector3(new THREE.Line3(start, next).delta().normalize()) ==
+                        this.keyForVector3(new THREE.Line3(next, current).delta().normalize()) &&
+                        normalsCount < 2) {
+                        // This is the second side of the edge and the edge is a line.
+                        //console.log("colinear edge");
+                        // New normal after a colinear edge so it's okay.
+                        currentNormal = neighborNormal;
+                        normalsCount++;
+                    } else {
+                        // This point touches 3 different planes so it can't be collapsed.
+                        //console.log("not colinear edge");
+                        break;
                     }
                 } while (currentPosition != startPosition);
                 if (currentPosition == startPosition) {
@@ -665,10 +689,12 @@ class ConnectedBufferGeometry extends THREE.BufferGeometry {
                         this.setPointsInArray([start], array, nextPosition);
                         currentPosition = this.getNeighborPosition(nextPosition);
                     } while (currentPosition != startPosition);
+                    degeneratesCreated += 2; // Because the neighbor was also made degenerate.
                     this.getAttribute('position').needsUpdate = true;
                 }
             }
         }
+        return degeneratesCreated;
     }
 }
 

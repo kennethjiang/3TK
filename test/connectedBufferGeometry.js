@@ -1,4 +1,4 @@
-import { BufferGeometryAnalyzer, ConnectedBufferGeometry, STLLoader, STLExporter } from '..';
+import { BufferGeometryAnalyzer, ConnectedBufferGeometry, STLLoader, STLExporter, STLBinaryExporter } from '..';
 import { expect } from 'chai';
 import fs from 'fs';
 import * as THREE from 'three';
@@ -29,15 +29,25 @@ describe("ConnectedBufferGeometry", function() {
         });
 
         it("Split simple tetrahedron", function() {
-            let filename = "tetrahedron.stl";
-            let stl = fs.readFileSync("test/" + filename, {encoding: "ascii"});
+            this.timeout(100000);
+            let filename = "DINOSAUR_JUMP.stl";
+            let stl = fs.readFileSync("test/" + filename, {encoding: "binary"});
             let geometry = new STLLoader().parse(stl);
             let connectedBufferGeometry = new ConnectedBufferGeometry().fromBufferGeometry(geometry);
-            console.log(connectedBufferGeometry);
-            connectedBufferGeometry.splitFaces(new THREE.Plane(new THREE.Vector3(1,0,0), -1));
-            connectedBufferGeometry.mergeFaces();
+            //console.log(connectedBufferGeometry);
+            //console.log("original face count: " + connectedBufferGeometry.getAttribute('position').array.length/9);
+            //let degeneratesCount = 0;
+            //for (let f = 0; f < connectedBufferGeometry.getAttribute('position').array.length/9; f++) {
+            //    if (connectedBufferGeometry.isFaceDegenerate(f)) {
+            //        degeneratesCount++;
+            //    }
+            //}
+            //console.log("degenerates: " + degeneratesCount);
+            //console.log("degenerates created: " + connectedBufferGeometry.mergeFaces());
+            connectedBufferGeometry.splitFaces(new THREE.Plane(new THREE.Vector3(1,0,0), -619));
+            //console.log("new face count: " + connectedBufferGeometry.getAttribute('position').array.length/9);
+            //console.log("degenerates created: " + connectedBufferGeometry.mergeFaces());
             
-            console.log(connectedBufferGeometry);
             let mesh = new THREE.Mesh(connectedBufferGeometry);
             let obj = new THREE.Object3D();
             obj.add(mesh);

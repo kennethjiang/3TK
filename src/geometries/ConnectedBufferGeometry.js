@@ -79,7 +79,7 @@ class ConnectedBufferGeometry {
     }
     // Given index in originalPositions, return a Vector3 of that point.
     vector3FromPosition(position, positions) {
-        return new THREE.Vector3().fromArray(this.positions, position);
+        return new THREE.Vector3().fromArray(positions, position);
     }
     // Given index in originalPositions, return a Vector3 of that point.
     colorFromPosition(position, colors) {
@@ -238,8 +238,8 @@ class ConnectedBufferGeometry {
         let facesAngle = (posIndex1, posIndex2) => {
             let normal1 = this.faceNormal(this.faceFromPosition(posIndex1));
             let normal2 = this.faceNormal(this.faceFromPosition(posIndex2));
-            let commonPoint1 = this.vector3FromPosition(posIndex1);
-            let commonPoint2 = this.vector3FromPosition(this.nextPositionInFace(posIndex1));
+            let commonPoint1 = this.vector3FromPosition(posIndex1, this.positions);
+            let commonPoint2 = this.vector3FromPosition(this.nextPositionInFace(posIndex1), this.positions);
             let edge1 = commonPoint2.clone().sub(commonPoint1);
             let normalsAngle = normal1.angleTo(normal2); // Between 0 and pi.
             let facesAngle = Math.PI;
@@ -463,21 +463,15 @@ class ConnectedBufferGeometry {
     faceNormal(faceIndex) {
         let [p0, p1, p2] =
             this.positionsFromFace(faceIndex, 0);
-        return new THREE.Triangle(...this.vector3sFromPositions([p0, p1, p2])).normal();
+        return new THREE.Triangle(...this.vector3sFromPositions([p0, p1, p2], this.positions)).normal();
     }
 
     // Split all edges in this geometry so that there are no edges
     // that cross the plane.
     splitFaces(plane) {
-        let positions = Array.from(this.getAttribute('position').array);
-        let normals = this.getAttribute('normal') && Array.from(this.getAttribute('normal').array);
-        let colors = this.getAttribute('color') && Array.from(this.getAttribute('color').array);
-        let reverseIslands = new Map();
-        for (let [root, faces] of this.islands) {
-            for (let face of faces) {
-                reverseIslands.set(face, root);
-            }
-        }
+        let positions = this.positions;
+        let colors = this.colors;
+
         /* Given the face and edge index, split that edge at the point
            where it crosses the plane.
 
@@ -541,27 +535,6 @@ class ConnectedBufferGeometry {
                 this.setColorsInArray([intersectionColor, neighborEndColor, neighborThirdColor],
                                       colors, colors.length);
             }
-            if (normals) {
-                // The new face's normals must be added.
-                let alpha = edgeStart.distanceTo(intersectionPoint) / edgeStart.distanceTo(edgeEnd);
-                let [startNormal, endNormal, thirdNormal] =
-                    this.vector3sFromPositions([position, nextPosition, previousPosition],
-                                               normals);
-                let [neighborStartNormal, neighborEndNormal, neighborThirdNormal] =
-                    this.vector3sFromPositions([neighborPosition, neighborNextPosition, neighborPreviousPosition],
-                                               normals);
-                let intersectionNormal = startNormal.clone().lerp(endNormal, alpha).normalize();
-                // The original face's normals must be adjusted.
-                this.setPointsInArray([intersectionNormal], normals, nextPosition);
-                // New normals needs to be added.
-                this.setPointsInArray([intersectionNormal, endNormal, thirdNormal],
-                                        normals, normals.length);
-                // The original neighbor's face's normals must be adjusted.
-                this.setPointsInArray([intersectionNormal], normals, neighborNextPosition);
-                // New normals need to be added for neighbor.
-                this.setPointsInArray([intersectionNormal, neighborEndNormal, neighborThirdNormal],
-                                        normals, normals.length);
-            }
             // Add to this.neighbors
             let newNeighborIndex = this.neighbors.length;
             this.neighbors.push(neighborPosition/3,
@@ -574,32 +547,16 @@ class ConnectedBufferGeometry {
             for (let i = newNeighborIndex; i < newNeighborIndex+6; i++) {
                 this.neighbors[this.neighbors[i]] = i;
             }
-            // Update the islands.
-            this.islands.get(reverseIslands.get(this.faceFromPosition(position))).push(
-                this.faceFromPosition(positions.length-18));
-            this.islands.get(reverseIslands.get(this.faceFromPosition(neighborPosition))).push(
-                this.faceFromPosition(positions.length-9));
             // Update the reverseIslands.
-            reverseIslands.set(this.faceFromPosition(positions.length-18),
-                               reverseIslands.get(this.faceFromPosition(position)));
-            reverseIslands.set(this.faceFromPosition(positions.length- 9),
-                               reverseIslands.get(this.faceFromPosition(neighborPosition)));
+            this.reverseIslands[this.faceFromPosition(positions.length-18)] =
+                this.reverseIslands[this.faceFromPosition(position)];
+            this.reverseIslands[this.faceFromPosition(positions.length- 9)] =
+                this.reverseIslands[this.faceFromPosition(neighborPosition)];
         }
         for (let f = 0; f < positions.length/9; f++) {
             for (let e = 0; e < 3; e++) {
                 splitFace(f, e, plane);
             }
-        }
-        // Now rewrite the attributes.
-        this.getAttribute("position").setArray(new Float32Array(positions), 3);
-        this.getAttribute("position").needsUpdate = true;
-        if (normals) {
-            this.getAttribute("normal").setArray(new Float32Array(normals), 3);
-            this.getAttribute("normal").needsUpdate = true;
-        }
-        if (colors) {
-            this.getAttribute("color").setArray(new Float32Array(colors), 3);
-            this.getAttribute("color").needsUpdate = true;
         }
     }
 

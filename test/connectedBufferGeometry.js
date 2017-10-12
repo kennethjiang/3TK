@@ -12,16 +12,17 @@ describe("ConnectedBufferGeometry", function() {
             let newGeometries = connectedBufferGeometry.isolatedBufferGeometries(geometry);
             expect(newGeometries.length).to.equal(expectedGeometriesCount);
 
-            /*connectedBufferGeometry.splitFaces(new THREE.Plane(new THREE.Vector3(1,0,0), -5));
+            connectedBufferGeometry.splitFaces(new THREE.Plane(new THREE.Vector3(1,0,0), -5));
             let oldNeighbors = connectedBufferGeometry.neighbors.slice(0);
             connectedBufferGeometry.neighbors = [];
             connectedBufferGeometry.findNeighbors();
             let newNeighbors = connectedBufferGeometry.neighbors.slice(0);
-            expect([1,2,3]).to.have.ordered.members([1,2,3]);
+            // neighbors array should have be updated correctly during split.
             expect(oldNeighbors).to.have.ordered.members(newNeighbors);
+
             newGeometries = connectedBufferGeometry.isolatedBufferGeometries(geometry);
-            // isolating after split should not affect the result.
-            expect(newGeometries.length).to.equal(expectedGeometriesCount);*/
+            // spliting should not affect the number of shapes.
+            expect(newGeometries.length).to.equal(expectedGeometriesCount);
         }
 
         it("Simple tetrahedron", function() {

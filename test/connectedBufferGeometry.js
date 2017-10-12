@@ -12,7 +12,7 @@ describe("ConnectedBufferGeometry", function() {
             let newGeometries = connectedBufferGeometry.isolatedBufferGeometries(geometry);
             expect(newGeometries.length).to.equal(expectedGeometriesCount);
 
-            connectedBufferGeometry.splitFaces(new THREE.Plane(new THREE.Vector3(1,0,0), -5));
+            /*connectedBufferGeometry.splitFaces(new THREE.Plane(new THREE.Vector3(1,0,0), -5));
             let oldNeighbors = connectedBufferGeometry.neighbors.slice(0);
             connectedBufferGeometry.neighbors = [];
             connectedBufferGeometry.findNeighbors();
@@ -21,13 +21,13 @@ describe("ConnectedBufferGeometry", function() {
             expect(oldNeighbors).to.have.ordered.members(newNeighbors);
             newGeometries = connectedBufferGeometry.isolatedBufferGeometries(geometry);
             // isolating after split should not affect the result.
-            expect(newGeometries.length).to.equal(expectedGeometriesCount);
+            expect(newGeometries.length).to.equal(expectedGeometriesCount);*/
         }
 
         it("Simple tetrahedron", function() {
             testFile("tetrahedron.stl", 1);
         });
-
+/*
         it("Split simple tetrahedron", function() {
             this.timeout(100000);
             let filename = "DINOSAUR_JUMP.stl";
@@ -51,9 +51,9 @@ describe("ConnectedBufferGeometry", function() {
             let mesh = new THREE.Mesh(connectedBufferGeometry);
             let obj = new THREE.Object3D();
             obj.add(mesh);
-            fs.writeFileSync("new_tetra1.stl", new Buffer(new STLExporter().parse(obj)), 'binary');
-        });
-/*
+            fs.writeFileSync("new_tetra1.stl", new Buffer(new STLExporter().parse(obj)), 'ascii');
+        });*/
+
         it("Split ruler with degenerate facets", function() {
             testFile("lungo.stl", 2);
         });
@@ -81,6 +81,6 @@ describe("ConnectedBufferGeometry", function() {
         it("Big object: Dinosaur Jump", function() {
             this.timeout(10000);
             testFile("DINOSAUR_JUMP.stl", 1);
-        });*/
+        });
     });
 });

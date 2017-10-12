@@ -1,37 +1,34 @@
 import * as THREE from 'three';
 
-// A ConnectedBufferGeometry is a BufferGeometry with additional
-// neighbor information.  The neighbor information maintains which
-// face is connected to which face by which edge.
-class ConnectedBufferGeometry extends THREE.BufferGeometry {
-    constructor(...args) {
-        super(...args);
+// A ConnectedBufferGeometry is similar to a BufferGeometry with
+// additional neighbor information.  The neighbor information
+// maintains which face is connected to which face by which edge.
+class ConnectedBufferGeometry {
+    constructor() {
+        // An array of numbers.  Every triple represents a point.
+        // Every 3 points is a face.
+        this.positions = [];
+        // An array of numbers.  Every triple represents an RGB for a
+        // point corresponding to the point in positions.
+        this.colors = [];
         // neighbors has length the same as faces*3.  Each element is
         // the position of the neighboring faceEdge.
         this.neighbors = [];
-        this.islands = [];
+        // A list as long as the number of faces.  Each element is a
+        // number that identifies an island.  All faces that have the
+        // same island number are part of the same shape.
+        this.reverseIslands = [];
     }
 
     fromBufferGeometry(bufferGeometry) {
-        let ret = this.copy(bufferGeometry);
+        this.positions = Array.from(bufferGeometry.getAttribute('position').array);
+        this.colors = bufferGeometry.getAttribute('color') && Array.from(bufferGeometry.getAttribute('color').array);
         this.findNeighbors();
-        return ret;
-    }
-
-    clone(...args) {
-        let cbg = super.clone(...args);
-        cbg.neighbors = this.neighbors.slice(0);
-        cbg.islands = this.islands.slice(0);
-    }
-
-    merge(...args) {
-        let ret = super.merge(...args);
-        this.findNeighbors();
-        return ret;
+        return this;
     }
 
     keyForTrio(startIndex, precisionPoints = 4) {
-        let array = this.getAttribute('position').array;
+        let array = this.positions;
         let [v1, v2, v3] = [array[startIndex], array[startIndex+1], array[startIndex+2]];
         if (precisionPoints >= 0) {
             var precision = Math.pow( 10, precisionPoints );
@@ -53,8 +50,7 @@ class ConnectedBufferGeometry extends THREE.BufferGeometry {
 
     vertexPositionMap(precisionPoints = 4) {
         let map = new Map();
-        let positions = this.getAttribute('position').array;
-        for (var posIndex = 0; posIndex < positions.length; posIndex += 3) {
+        for (var posIndex = 0; posIndex < this.positions.length; posIndex += 3) {
             let key = this.keyForTrio(posIndex, precisionPoints);
             if (!map.has(key)) {
                 map.set(key, []);
@@ -83,13 +79,11 @@ class ConnectedBufferGeometry extends THREE.BufferGeometry {
     }
     // Given index in originalPositions, return a Vector3 of that point.
     vector3FromPosition(position, positions) {
-        positions = positions || this.getAttribute('position').array;
-        return new THREE.Vector3().fromArray(positions, position);
+        return new THREE.Vector3().fromArray(this.positions, position);
     }
     // Given index in originalPositions, return a Vector3 of that point.
     colorFromPosition(position, colors) {
-        colors = colors || this.getAttribute('color').array;
-        return new THREE.Color().fromArray(colors, position);
+        return new THREE.Color().fromArray(this.colors, position);
     }
 
     // Gets the position of an adjacent vertex in the face.  If direction is +3, go forward.  If -3, go to previous.
@@ -123,20 +117,8 @@ class ConnectedBufferGeometry extends THREE.BufferGeometry {
     // this.neighbors will be an array with length 3 times the number of faces.
     // Each element is the connection between
     findNeighbors() {
-        let originalPositions = this.getAttribute('position').array;
         var vertexPosMap = this.vertexPositionMap();
-
-        const faceCount = originalPositions.length / 9;
-
-        // Returns true if the faceIndex (0 to faceCount-1) has two
-        // identical points in it.
-        let isFaceDegenerate = (faceIndex) => {
-            let facePoints = new Set();
-            for (let edgeIndex = 0; edgeIndex < 3; edgeIndex++) {
-                facePoints.add(this.keyForTrio(this.positionFromFaceEdge(faceIndex, edgeIndex)));
-            }
-            return facePoints.size != 3;
-        }
+        const faceCount = this.positions.length / 9;
 
         // Find the island to which this face belongs using the
         // union-join algorithm.
@@ -378,15 +360,11 @@ class ConnectedBufferGeometry extends THREE.BufferGeometry {
         // map from the island index (which is the root of the
         // union-find algorithm) to a list of faces.  Degenerate faces
         // are not included in any island.
-        this.islands = new Map();
+        this.reverseIslands = [];
         for (let faceIndex = 0; faceIndex < faceCount; faceIndex++) {
             let islandIndex = findIsland(faceIndex);
-            if (islandIndex !== null) {
-                if (this.islands.get(islandIndex) === undefined) {
-                    // Haven't seen this island yet so add a new face list.
-                    this.islands.set(islandIndex, []);
-                }
-                this.islands.get(islandIndex).push(faceIndex);
+            if (Number.isInteger(islandIndex)) {
+                this.reverseIslands[faceIndex] = islandIndex;
             }
             for (let edgeIndex = 0; edgeIndex < 3; edgeIndex++) {
                 let neighbor = faces[faceIndex].neighbors[edgeIndex];
@@ -397,11 +375,19 @@ class ConnectedBufferGeometry extends THREE.BufferGeometry {
 
     // Returns a list of isolated BufferGeometries.
     isolatedBufferGeometries() {
-        let originalPositions = this.getAttribute('position').array;
-        let originalNormals = this.getAttribute('normal') !== undefined ? this.getAttribute('normal').array : undefined;
-        let originalColors = this.getAttribute('color') !== undefined ? this.getAttribute('color').array : undefined;
         let geometries = [];
-        for (let island of this.islands.values()) {
+        let islands = new Map();
+        for (let face of this.reverseIslands) {
+            let root = this.reverseIslands[face];
+            if (!Number.isInteger(root)) {
+                continue;
+            }
+            if (!islands.has(root)) {
+                islands.set(root, []);
+            }
+            islands.get(root).push(face);
+        }
+        for (let island of islands.values()) {
             let newGeometry = new THREE.BufferGeometry();
 
             let vertices = [];
@@ -411,22 +397,21 @@ class ConnectedBufferGeometry extends THREE.BufferGeometry {
             for (let faceIndex of island) {
                 let posIndex = this.positionFromFace(faceIndex);
                 for (var i = 0; i < 9; i++) {
-                    vertices.push(originalPositions[posIndex + i]);
-                    if (originalNormals) {
-                        normals.push(originalNormals[posIndex + i]);
+                    vertices.push(this.positions[posIndex + i]);
+                    if (this.colors) {
+                        colors.push(this.colors[posIndex + i]);
                     }
-                    if (originalColors) {
-                        colors.push(originalColors[posIndex + i]);
-                    }
+                }
+                let normal = this.faceNormal(faceIndex);
+                for (let i = 0; i < 3; i++) {
+                    normals.push(normal.x, normal.y, normal.z);
                 }
             }
 
-            newGeometry.addAttribute('position', new THREE.BufferAttribute(new Float32Array( vertices ), 3));
-            if (originalNormals) {
-                newGeometry.addAttribute('normal', new THREE.BufferAttribute(new Float32Array( normals ), 3));
-            }
-            if (originalColors) {
-                newGeometry.addAttribute( 'color', new THREE.BufferAttribute(new Float32Array( colors ), 3));
+            newGeometry.addAttribute('position', new THREE.BufferAttribute(new Float32Array(vertices), 3));
+            newGeometry.addAttribute('normal', new THREE.BufferAttribute(new Float32Array(normals), 3));
+            if (this.colors) {
+                newGeometry.addAttribute('color', new THREE.BufferAttribute(new Float32Array(colors), 3));
             }
             geometries.push(newGeometry);
         }
@@ -485,7 +470,7 @@ class ConnectedBufferGeometry extends THREE.BufferGeometry {
     // that cross the plane.
     splitFaces(plane) {
         let positions = Array.from(this.getAttribute('position').array);
-        let normals = this.getAttribute('normal') &&  Array.from(this.getAttribute('normal').array);
+        let normals = this.getAttribute('normal') && Array.from(this.getAttribute('normal').array);
         let colors = this.getAttribute('color') && Array.from(this.getAttribute('color').array);
         let reverseIslands = new Map();
         for (let [root, faces] of this.islands) {
@@ -638,7 +623,6 @@ class ConnectedBufferGeometry extends THREE.BufferGeometry {
         for (let faceIndex = 0; faceIndex < faceCount; faceIndex++) {
             if (this.isFaceDegenerate(faceIndex)) {
                 // Skip it, we're going to remove it later anyway.
-                //console.log("degenerate");
                 continue;
             }
             for (let edgeIndex = 0; edgeIndex < 3; edgeIndex++) {
@@ -646,7 +630,6 @@ class ConnectedBufferGeometry extends THREE.BufferGeometry {
                 let start = this.vector3FromPosition(startPosition);
                 let currentNormal = this.faceNormal(this.faceFromPosition(startPosition));
                 let currentPosition = startPosition;
-                //console.log("starting face");
                 let normalsCount = 1;
                 let nextPosition = this.nextPositionInFace(currentPosition);
                 let next = this.vector3FromPosition(nextPosition);
@@ -664,20 +647,16 @@ class ConnectedBufferGeometry extends THREE.BufferGeometry {
                     }
                     // The new face has a different normal.  This point might be on an edge.
                     let current = this.vector3FromPosition(currentPosition);
-                    //console.log("current " + current.x + "," + current.y + "," + current.z);
-                    //console.log("new normal is "+ this.keyForVector3(neighborNormal));
                     // New normal.
                     if (this.keyForVector3(new THREE.Line3(start, next).delta().normalize()) ==
                         this.keyForVector3(new THREE.Line3(next, current).delta().normalize()) &&
                         normalsCount < 2) {
                         // This is the second side of the edge and the edge is a line.
-                        //console.log("colinear edge");
                         // New normal after a colinear edge so it's okay.
                         currentNormal = neighborNormal;
                         normalsCount++;
                     } else {
                         // This point touches 3 different planes so it can't be collapsed.
-                        //console.log("not colinear edge");
                         break;
                     }
                 } while (currentPosition != startPosition);

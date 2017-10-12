@@ -28,7 +28,7 @@ describe("ConnectedBufferGeometry", function() {
         it("Simple tetrahedron", function() {
             testFile("tetrahedron.stl", 1);
         });
-/*
+
         it("Split simple tetrahedron", function() {
             this.timeout(100000);
             let filename = "DINOSAUR_JUMP.stl";
@@ -47,13 +47,13 @@ describe("ConnectedBufferGeometry", function() {
             //console.log("degenerates created: " + connectedBufferGeometry.mergeFaces());
             connectedBufferGeometry.splitFaces(new THREE.Plane(new THREE.Vector3(1,0,0), -619));
             //console.log("new face count: " + connectedBufferGeometry.getAttribute('position').array.length/9);
-            //console.log("degenerates created: " + connectedBufferGeometry.mergeFaces());
+            console.log("degenerates created: " + connectedBufferGeometry.mergeFaces());
             
-            let mesh = new THREE.Mesh(connectedBufferGeometry);
+            let mesh = new THREE.Mesh(connectedBufferGeometry.bufferGeometry());
             let obj = new THREE.Object3D();
             obj.add(mesh);
             fs.writeFileSync("new_tetra1.stl", new Buffer(new STLExporter().parse(obj)), 'ascii');
-        });*/
+        });
 
         it("Split ruler with degenerate facets", function() {
             testFile("lungo.stl", 2);
@@ -80,7 +80,7 @@ describe("ConnectedBufferGeometry", function() {
         });
 
         it("Big object: Dinosaur Jump", function() {
-            this.timeout(10000);
+            this.timeout(20000);
             testFile("DINOSAUR_JUMP.stl", 1);
         });
     });

@@ -27,7 +27,7 @@ class ConnectedBufferGeometry {
         return this;
     }
 
-    keyForTrio(startIndex, precisionPoints = 4) {
+    keyForTrio(startIndex, precisionPoints = 8) {
         let array = this.positions;
         let [v1, v2, v3] = [array[startIndex], array[startIndex+1], array[startIndex+2]];
         if (precisionPoints >= 0) {
@@ -38,7 +38,7 @@ class ConnectedBufferGeometry {
         }
     }
 
-    keyForVector3(vector3, precisionPoints = 4) {
+    keyForVector3(vector3, precisionPoints = 8) {
         let [v1, v2, v3] = [vector3.x, vector3.y, vector3.z];
         if (precisionPoints >= 0) {
             var precision = Math.pow( 10, precisionPoints );
@@ -48,7 +48,7 @@ class ConnectedBufferGeometry {
         }
     }
 
-    vertexPositionMap(precisionPoints = 4) {
+    vertexPositionMap(precisionPoints = 8) {
         let map = new Map();
         for (var posIndex = 0; posIndex < this.positions.length; posIndex += 3) {
             let key = this.keyForTrio(posIndex, precisionPoints);
@@ -419,6 +419,24 @@ class ConnectedBufferGeometry {
         return geometries;
     }
 
+    bufferGeometry() {
+        let newGeometry = new THREE.BufferGeometry();
+        let normals = [];
+        for (let faceIndex = 0; faceIndex < this.positions / 9; faceIndex++) {
+            let posIndex = this.positionFromFace(faceIndex);
+            let normal = this.faceNormal(faceIndex);
+            for (let i = 0; i < 3; i++) {
+                normals.push(normal.x, normal.y, normal.z);
+            }
+        }
+        newGeometry.addAttribute('position', new THREE.BufferAttribute(new Float32Array(this.positions), 3));
+        newGeometry.addAttribute('normal', new THREE.BufferAttribute(new Float32Array(normals), 3));
+        if (this.colors) {
+            newGeometry.addAtrribute('color', new THREE.BufferAttribute(new Float32Array(this.colors), 3));
+        }
+        return newGeometry;
+    }
+
     // Returns all positions in the face, starting from the vertex specified.
     positionsFromFace(faceIndex, vertexIndex) {
         let p1 = this.positionFromFaceEdge(faceIndex, vertexIndex);
@@ -575,7 +593,7 @@ class ConnectedBufferGeometry {
     // The faces that are merged out of existence are left in place as
     // degenerate faces.
     mergeFaces() {
-        const faceCount = this.getAttribute('position').array.length / 9;
+        const faceCount = this.positions.length / 9;
         let degeneratesCreated = 0;
         for (let faceIndex = 0; faceIndex < faceCount; faceIndex++) {
             if (this.isFaceDegenerate(faceIndex)) {
@@ -584,12 +602,12 @@ class ConnectedBufferGeometry {
             }
             for (let edgeIndex = 0; edgeIndex < 3; edgeIndex++) {
                 let startPosition = this.positionFromFaceEdge(faceIndex, edgeIndex);
-                let start = this.vector3FromPosition(startPosition);
+                let start = this.vector3FromPosition(startPosition, this.positions);
                 let currentNormal = this.faceNormal(this.faceFromPosition(startPosition));
                 let currentPosition = startPosition;
                 let normalsCount = 1;
                 let nextPosition = this.nextPositionInFace(currentPosition);
-                let next = this.vector3FromPosition(nextPosition);
+                let next = this.vector3FromPosition(nextPosition, this.positions);
                 do {
                     currentPosition = this.getNeighborPosition(nextPosition);
                     nextPosition = this.nextPositionInFace(currentPosition);
@@ -603,7 +621,7 @@ class ConnectedBufferGeometry {
                         continue;
                     }
                     // The new face has a different normal.  This point might be on an edge.
-                    let current = this.vector3FromPosition(currentPosition);
+                    let current = this.vector3FromPosition(currentPosition, this.positions);
                     // New normal.
                     if (this.keyForVector3(new THREE.Line3(start, next).delta().normalize()) ==
                         this.keyForVector3(new THREE.Line3(next, current).delta().normalize()) &&
@@ -619,14 +637,12 @@ class ConnectedBufferGeometry {
                 } while (currentPosition != startPosition);
                 if (currentPosition == startPosition) {
                     // We didn't break so this triangle should be collapsable.
-                    let array = this.getAttribute('position').array;
                     do {
                         let nextPosition = this.nextPositionInFace(currentPosition);
-                        this.setPointsInArray([start], array, nextPosition);
+                        this.setPointsInArray([start], this.positions, nextPosition);
                         currentPosition = this.getNeighborPosition(nextPosition);
                     } while (currentPosition != startPosition);
                     degeneratesCreated += 2; // Because the neighbor was also made degenerate.
-                    this.getAttribute('position').needsUpdate = true;
                 }
             }
         }

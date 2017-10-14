@@ -16,7 +16,8 @@ class ConnectedBufferGeometry {
         this.neighbors = [];
         // A list as long as the number of faces.  Each element is a
         // number that identifies an island.  All faces that have the
-        // same island number are part of the same shape.
+        // same island number are part of the same shape.  faces that
+        // have null island are degenerate and not part of any shape.
         this.reverseIslands = [];
     }
 
@@ -582,7 +583,7 @@ class ConnectedBufferGeometry {
     }
 
     debugLog(...args) {
-        console.log(...args);
+        //console.log(...args);
     }
     // Merge faces where possible.
     //
@@ -619,9 +620,18 @@ class ConnectedBufferGeometry {
         //}
         faces.push(206562);
         faces.push(206567);
-        for (let faceIndex of faces) {
-        //for (let faceIndex = 0; faceIndex < faceCount; faceIndex++) {
+        //for (let faceIndex of faces) {
+        for (let faceIndex = 0; faceIndex < faceCount; faceIndex++) {
             for (let edgeIndex = 0; edgeIndex < 3; edgeIndex++) {
+                //console.log("reverse island of " + faceIndex + " is " + this.reverseIslands[faceIndex]);
+                if (!Number.isInteger(this.reverseIslands[faceIndex])) {
+                    // This face is already a degenerate from previous
+                    // merge operations but not yet deleted from
+                    // this.positions .  Stop processing it.
+                    // Eventually it will be removed from
+                    // this.positions.
+                    break;
+                }
                 let startPosition = this.positionFromFaceEdge(faceIndex, edgeIndex);
                 let currentPosition = startPosition;
                 let nextPosition = this.nextPositionInFace(currentPosition);
@@ -673,36 +683,35 @@ class ConnectedBufferGeometry {
                     }
                 } while (currentPosition != startPosition);
                 if (currentPosition == startPosition) {
-                    console.log("collapse " + faceIndex);
+                    //console.log("collapse " + faceIndex);
                     this.debugLog(start);
                     this.debugLog(next);
                     // We didn't break so this triangle should be collapsable.
                     facesMerged++;
+                    let faces = [];
                     do {
                         let nextPosition = this.nextPositionInFace(currentPosition);
-                        //this.debugLog("to collapse:");
-                        //this.debugLog(this.vector3FromPosition(this.nextPositionInFace(nextPosition), this.positions));
                         this.setPointsInArray([start], this.positions, nextPosition);
+                        faces.push(this.faceFromPosition(currentPosition));
                         currentPosition = this.getNeighborPosition(nextPosition);
                     } while (currentPosition != startPosition);
+                    this.removeDegenerates0(faces);
+                    this.removeDegenerates180(faces);
                 }
             }
         }
         return facesMerged;
     }
 
-    // Find and remove all degenerates.
-    removeDegenerates() {
-        const faceCount = this.positions.length / 9;
-
-        // First remove degenerates where two of the three points are the same.
-        for (let faceIndex = 0; faceIndex < faceCount; faceIndex++) {
-            // Find if there are two identical edges.
+    // Remove degenerates where two of 3 vertices are the same.
+    removeDegenerates0(faces) {
+        for (let faceIndex of faces) {
+            // Find if there are two identical vertices.
             let edgeIndex = 0;
             for (; edgeIndex < 3; edgeIndex++) {
                 let position = this.positionFromFaceEdge(faceIndex, edgeIndex);
                 let nextPosition = this.nextPositionInFace(position);
-                if (this.keyForTrio(position, -1) == this.keyForTrio(nextPosition, -1)) {
+                if (this.keyForTrio(position) == this.keyForTrio(nextPosition)) {
                     // Found a degenerate.
                     let edge1 = nextPosition;
                     let edge2 = this.nextPositionInFace(edge1);
@@ -716,18 +725,23 @@ class ConnectedBufferGeometry {
                 }
             }
         }
+    }
 
-        // Remove degenerates where two faces share more than one edge.
-        for (let faceIndex = 0; faceIndex < faceCount; faceIndex++) {
-            // Find if there is a face that is connected twice.
+    // Remove degenerates where two faces share more than one edge but not all 3 edges.
+    removeDegenerates180(faces) {
+        for (let faceIndex of faces) {
+            // Find if there is a face that is connected exactly twice.
             let edgeIndex = 0;
             for (; edgeIndex < 3; edgeIndex++) {
                 let position = this.positionFromFaceEdge(faceIndex, edgeIndex);
                 let nextPosition = this.nextPositionInFace(position);
+                let previousPosition = this.previousPositionInFace(position);
                 if (this.faceFromPosition(this.getNeighborPosition(position)) ==
-                    this.faceFromPosition(this.getNeighborPosition(nextPosition))) {
-                    let otherFaceIndex = this.faceFromPosition(this.getNeighborPosition(position));
+                    this.faceFromPosition(this.getNeighborPosition(nextPosition)) &&
+                    this.faceFromPosition(this.getNeighborPosition(position)) !=
+                    this.faceFromPosition(this.getNeighborPosition(previousPosition))) {
                     // Found a degenerate.
+                    let otherFaceIndex = this.faceFromPosition(this.getNeighborPosition(position));
                     let edge1 = this.nextPositionInFace(nextPosition);
                     let edge2 = this.nextPositionInFace(this.getNeighborPosition(position));
                     // Connect their neighbors.
@@ -741,8 +755,12 @@ class ConnectedBufferGeometry {
                 }
             }
         }
+    }
 
-        // Write the changes.
+    // Rewrite the list of faces without the degenerates in it.
+    deleteDegenerates() {
+        const faceCount = this.positions.length / 9;
+
         let degeneratesRemoved = 0;
         let newPositions = [];
         let newColors = [];
@@ -767,16 +785,16 @@ class ConnectedBufferGeometry {
                 if (!Number.isInteger(newFaceIndex[oldFaceIndex])) {
                     continue;
                 }
-                let oldNeighborPosition = this.getNeighborPosition(this.positionFromFaceEdge(oldFaceIndex, oldEdgeIndex));
+                let oldPosition = this.positionFromFaceEdge(oldFaceIndex, oldEdgeIndex);
+                let oldNeighborPosition = this.getNeighborPosition(oldPosition);
                 let newPosition = this.positionFromFaceEdge(newFaceIndex[oldFaceIndex],
                                                             oldEdgeIndex);
                 let newNeighborPosition = this.positionFromFaceEdge(newFaceIndex[this.faceFromPosition(oldNeighborPosition)],
                                                                     this.edgeFromPosition(oldNeighborPosition));
-                newNeighbors[newPosition] = newNeighborPosition;
+                newNeighbors[newPosition/3] = newNeighborPosition/3;
             }
         }
 
-        //this.debugLog(newPositions);
         this.positions = newPositions;
         if (this.colors) {
             this.colors = newColors;

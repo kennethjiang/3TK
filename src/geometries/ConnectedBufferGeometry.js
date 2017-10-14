@@ -27,7 +27,7 @@ class ConnectedBufferGeometry {
         return this;
     }
 
-    keyForTrio(startIndex, precisionPoints = 8) {
+    keyForTrio(startIndex, precisionPoints = -1) {
         let array = this.positions;
         let [v1, v2, v3] = [array[startIndex], array[startIndex+1], array[startIndex+2]];
         if (precisionPoints >= 0) {
@@ -38,7 +38,7 @@ class ConnectedBufferGeometry {
         }
     }
 
-    keyForVector3(vector3, precisionPoints = 8) {
+    keyForVector3(vector3, precisionPoints = -1) {
         let [v1, v2, v3] = [vector3.x, vector3.y, vector3.z];
         if (precisionPoints >= 0) {
             var precision = Math.pow( 10, precisionPoints );
@@ -48,7 +48,7 @@ class ConnectedBufferGeometry {
         }
     }
 
-    vertexPositionMap(precisionPoints = 8) {
+    vertexPositionMap(precisionPoints = -1) {
         let map = new Map();
         for (var posIndex = 0; posIndex < this.positions.length; posIndex += 3) {
             let key = this.keyForTrio(posIndex, precisionPoints);
@@ -581,6 +581,9 @@ class ConnectedBufferGeometry {
         return splitsMade;
     }
 
+    debugLog(...args) {
+        console.log(...args);
+    }
     // Merge faces where possible.
     //
     // Look for edges where one of the points could be moved to the
@@ -597,14 +600,34 @@ class ConnectedBufferGeometry {
     // degenerate faces.
     mergeFaces() {
         const faceCount = this.positions.length / 9;
-        let degeneratesCreated = 0;
-        for (let faceIndex = 0; faceIndex < faceCount; faceIndex++) {
+        let facesMerged = 0;
+        // must include
+        let faces = [];
+        //faces.push(200065);
+        //faces.push(200066);
+        //faces.push(200068);
+        //faces.push(207300);
+        //faces.push(204201);
+
+        faces.push(165710);
+        faces.push(165711);
+        faces.push(165714);
+        // 206562-206566
+        //for (let faceIndex = 206566; faceIndex < 206567; faceIndex++)
+        //{
+            //faces.push(faceIndex);
+        //}
+        faces.push(206562);
+        faces.push(206567);
+        for (let faceIndex of faces) {
+        //for (let faceIndex = 0; faceIndex < faceCount; faceIndex++) {
             for (let edgeIndex = 0; edgeIndex < 3; edgeIndex++) {
                 let startPosition = this.positionFromFaceEdge(faceIndex, edgeIndex);
                 let currentPosition = startPosition;
                 let nextPosition = this.nextPositionInFace(currentPosition);
                 if (this.keyForTrio(startPosition) == this.keyForTrio(nextPosition)) {
-                    //console.log(this.keyForTrio(startPosition));
+                    this.debugLog("no need");
+                    this.debugLog(this.keyForTrio(startPosition));
                     // No need to continue because this already 0 length.
                     continue;
                 }
@@ -612,23 +635,33 @@ class ConnectedBufferGeometry {
                 let normalsCount = 1;
                 let start = this.vector3FromPosition(startPosition, this.positions);
                 let next = this.vector3FromPosition(nextPosition, this.positions);
+                this.debugLog("merging");
+                this.debugLog(start);
+                this.debugLog(next);
                 do {
+                    this.debugLog("current normal is " + this.keyForVector3(currentNormal));
                     currentPosition = this.getNeighborPosition(nextPosition);
                     nextPosition = this.nextPositionInFace(currentPosition);
+                    let currentThird = this.nextPositionInFace(nextPosition);
+                    this.debugLog("current third is: ");
+                    this.debugLog(this.vector3FromPosition(currentThird, this.positions));
                     let neighborNormal = this.faceNormal(this.faceFromPosition(currentPosition));
                     if (neighborNormal.length() == 0) {
+                        this.debugLog("ignore degenerate");
                         // Ignore the normal of degenerate faces.
                         continue;
                     }
-                    if (this.keyForVector3(currentNormal) == this.keyForVector3(neighborNormal)) {
+                    if (this.keyForVector3(currentNormal, 3) == this.keyForVector3(neighborNormal, 3)) {
+                        this.debugLog("same normal");
                         // Same normal so it's coplanar so we can ignore it.
                         continue;
                     }
+                    this.debugLog("new normal is: " + this.keyForVector3(neighborNormal));
                     // The new face has a different normal.  This point might be on an edge.
                     let current = this.vector3FromPosition(currentPosition, this.positions);
                     // New normal.
-                    if (this.keyForVector3(new THREE.Line3(start, next).delta().normalize()) ==
-                        this.keyForVector3(new THREE.Line3(next, current).delta().normalize()) &&
+                    if (this.keyForVector3(new THREE.Line3(start, next).delta().normalize(), 3) ==
+                        this.keyForVector3(new THREE.Line3(next, current).delta().normalize(), 3) &&
                         normalsCount < 2) {
                         // This is the second side of the edge and the edge is a line.
                         // New normal after a colinear edge so it's okay.
@@ -640,15 +673,15 @@ class ConnectedBufferGeometry {
                     }
                 } while (currentPosition != startPosition);
                 if (currentPosition == startPosition) {
-                    //console.log("collapse");
-                    //console.log(start);
-                    //console.log(next);
+                    console.log("collapse " + faceIndex);
+                    this.debugLog(start);
+                    this.debugLog(next);
                     // We didn't break so this triangle should be collapsable.
                     facesMerged++;
                     do {
                         let nextPosition = this.nextPositionInFace(currentPosition);
-                        //console.log("to collapse:");
-                        //console.log(this.vector3FromPosition(this.nextPositionInFace(nextPosition), this.positions));
+                        //this.debugLog("to collapse:");
+                        //this.debugLog(this.vector3FromPosition(this.nextPositionInFace(nextPosition), this.positions));
                         this.setPointsInArray([start], this.positions, nextPosition);
                         currentPosition = this.getNeighborPosition(nextPosition);
                     } while (currentPosition != startPosition);
@@ -669,7 +702,7 @@ class ConnectedBufferGeometry {
             for (; edgeIndex < 3; edgeIndex++) {
                 let position = this.positionFromFaceEdge(faceIndex, edgeIndex);
                 let nextPosition = this.nextPositionInFace(position);
-                if (this.keyForTrio(position) == this.keyForTrio(nextPosition)) {
+                if (this.keyForTrio(position, -1) == this.keyForTrio(nextPosition, -1)) {
                     // Found a degenerate.
                     let edge1 = nextPosition;
                     let edge2 = this.nextPositionInFace(edge1);
@@ -743,7 +776,7 @@ class ConnectedBufferGeometry {
             }
         }
 
-        //console.log(newPositions);
+        //this.debugLog(newPositions);
         this.positions = newPositions;
         if (this.colors) {
             this.colors = newColors;

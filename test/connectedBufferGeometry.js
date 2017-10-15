@@ -41,9 +41,7 @@ describe("ConnectedBufferGeometry", function() {
             let oldNeighbors = connectedBufferGeometry.neighbors.slice(0);
             connectedBufferGeometry.neighbors = [];
             connectedBufferGeometry.reverseIslands = [];
-            console.log("finding neighbors");
             connectedBufferGeometry.findNeighbors();
-            console.log("neighbors found");
             let newNeighbors = connectedBufferGeometry.neighbors.slice(0);
             // neighbors array should have be updated correctly during split.
             expect(newNeighbors).to.have.ordered.members(oldNeighbors);
@@ -60,11 +58,11 @@ describe("ConnectedBufferGeometry", function() {
             }
             expect(newGeometries.length).to.equal(expectedGeometriesCount);
         }
-/*
+
         it("Simple tetrahedron", function() {
             testFile("tetrahedron.stl", 1);
         });
-*/
+
         it("Split ruler with degenerate facets", function() {
             testFile("lungo.stl", 2);
         });

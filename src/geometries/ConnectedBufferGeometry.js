@@ -25,6 +25,7 @@ class ConnectedBufferGeometry {
         this.positions = Array.from(bufferGeometry.getAttribute('position').array);
         this.colors = bufferGeometry.getAttribute('color') && Array.from(bufferGeometry.getAttribute('color').array);
         this.findNeighbors();
+        this.deleteDegenerates();
         return this;
     }
 
@@ -665,7 +666,6 @@ class ConnectedBufferGeometry {
                     this.debugLog(this.vector3FromPosition(currentThird, this.positions));
                     let neighborNormal = this.faceNormal(this.faceFromPosition(currentPosition));
                     if (neighborNormal.length() == 0) {
-                        this.debugLog("ignore degenerate");
                         // Ignore the normal of degenerate faces.
                         continue;
                     }

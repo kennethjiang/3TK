@@ -5,7 +5,7 @@ import * as THREE from 'three';
 
 describe("ConnectedBufferGeometry", function() {
     describe("isolatedBufferGeometries", function() {
-        let testFile = function (filename, expectedGeometriesCount, writeShapes = false) {
+        let testFile = function (filename, expectedGeometriesCount, writeShapes = true) {
             // Test that the number of shapes is as expected.
             let stl = fs.readFileSync("test/" + filename, {encoding: "binary"});
             let geometry = new STLLoader().parse(stl);

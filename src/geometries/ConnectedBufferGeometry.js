@@ -21,6 +21,17 @@ class ConnectedBufferGeometry {
         this.reverseIslands = [];
     }
 
+    clone() {
+        let newCBG = new ConnectedBufferGeometry();
+        newCBG.positions = this.positions.slice(0);
+        if (this.colors) {
+            newCBG.colors = this.colors.slice(0);
+        }
+        newCBG.neighbors = this.neighbors.slice(0);
+        newCBG.reverseIslands = this.reverseIslands.slice(0);
+        return newCBG;
+    }
+
     fromBufferGeometry(bufferGeometry) {
         this.positions = Array.from(bufferGeometry.getAttribute('position').array);
         this.colors = bufferGeometry.getAttribute('color') && Array.from(bufferGeometry.getAttribute('color').array);
@@ -407,19 +418,31 @@ class ConnectedBufferGeometry {
     bufferGeometry() {
         let newGeometry = new THREE.BufferGeometry();
         let normals = [];
-        for (let faceIndex = 0; faceIndex < this.positions / 9; faceIndex++) {
-            let posIndex = this.positionFromFace(faceIndex);
-            let normal = this.faceNormal(faceIndex);
+        let roundedCBG = this.clone();
+        for (let faceIndex = 0; faceIndex < roundedCBG.positions.length / 9; faceIndex++) {
+            let posIndex = roundedCBG.positionFromFace(faceIndex);
+            let normal = roundedCBG.faceNormal(faceIndex);
             for (let i = 0; i < 3; i++) {
                 normals.push(normal.x, normal.y, normal.z);
             }
         }
-        newGeometry.addAttribute('position', new THREE.BufferAttribute(new Float32Array(this.positions), 3));
+        newGeometry.addAttribute('position', new THREE.BufferAttribute(new Float32Array(roundedCBG.positions), 3));
         newGeometry.addAttribute('normal', new THREE.BufferAttribute(new Float32Array(normals), 3));
-        if (this.colors) {
-            newGeometry.addAttribute('color', new THREE.BufferAttribute(new Float32Array(this.colors), 3));
+        if (roundedCBG.colors) {
+            newGeometry.addAttribute('color', new THREE.BufferAttribute(new Float32Array(roundedCBG.colors), 3));
         }
         return newGeometry;
+    }
+
+    // round vertices to the nearest Float32 value.  This eliminates
+    // degenerates when saving the file.
+    roundVerticesToFloat() {
+        if (this.colors) {
+            this.colors = Array.from(new Float32Array(this.colors));
+        }
+        this.positions = Array.from(new Float32Array(this.positions));
+        this.removeDegenerates(new Array(this.positions.length/9).keys());
+        this.deleteDegenerates();
     }
 
     // Returns all positions in the face, starting from the vertex specified.
@@ -661,16 +684,29 @@ class ConnectedBufferGeometry {
                         faces.push(this.faceFromPosition(currentPosition));
                         currentPosition = this.getNeighborPosition(nextPosition);
                     } while (currentPosition != startPosition);
-                    this.removeDegenerates0(faces);
-                    this.removeDegenerates180(faces);
+                    this.removeDegenerates(faces);
                 }
             }
         }
+        this.deleteDegenerates();
         return facesMerged;
+    }
+
+    removeDegenerates(faces) {
+        let degeneratesRemoved = 0;
+        let totalDegeneratesRemoved = 0;
+        do {
+            totalDegeneratesRemoved += degeneratesRemoved;
+            degeneratesRemoved = 0;
+            degeneratesRemoved += this.removeDegenerates0(faces);
+            degeneratesRemoved += this.removeDegenerates180(faces);
+        } while(degeneratesRemoved > 0);
+        return totalDegeneratesRemoved;
     }
 
     // Remove degenerates where two of 3 vertices are the same.
     removeDegenerates0(faces) {
+        let degeneratesRemoved = 0;
         for (let faceIndex of faces) {
             // Find if there are two identical vertices.
             let edgeIndex = 0;
@@ -679,6 +715,7 @@ class ConnectedBufferGeometry {
                 let nextPosition = this.nextPositionInFace(position);
                 if (this.keyForTrio(position) == this.keyForTrio(nextPosition)) {
                     // Found a degenerate.
+                    degeneratesRemoved++;
                     let edge1 = nextPosition;
                     let edge2 = this.nextPositionInFace(edge1);
                     // Connect their neighbors.
@@ -691,10 +728,12 @@ class ConnectedBufferGeometry {
                 }
             }
         }
+        return degeneratesRemoved;
     }
 
     // Remove degenerates where two faces share more than one edge but not all 3 edges.
     removeDegenerates180(faces) {
+        let degeneratesRemoved = 0;
         for (let faceIndex of faces) {
             // Find if there is a face that is connected exactly twice.
             let edgeIndex = 0;
@@ -707,6 +746,7 @@ class ConnectedBufferGeometry {
                     this.faceFromPosition(this.getNeighborPosition(position)) !=
                     this.faceFromPosition(this.getNeighborPosition(previousPosition))) {
                     // Found a degenerate.
+                    degeneratesRemoved++;
                     let otherFaceIndex = this.faceFromPosition(this.getNeighborPosition(position));
                     let edge1 = this.nextPositionInFace(nextPosition);
                     let edge2 = this.nextPositionInFace(this.getNeighborPosition(position));
@@ -721,6 +761,7 @@ class ConnectedBufferGeometry {
                 }
             }
         }
+        return degeneratesRemoved;
     }
 
     // Rewrite the list of faces without the degenerates in it.

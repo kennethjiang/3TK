@@ -34,7 +34,6 @@ describe("ConnectedBufferGeometry", function() {
                 obj.add(mesh);
                 fs.writeFileSync(filename + " _split.stl", new Buffer(new STLExporter().parse(obj)), 'ascii');
             }
-            console.log(splits);
             let newFaceCount = connectedBufferGeometry.positions.length/9;
             // Splitting an edge affects two faces.
             expect(newFaceCount).to.equal(oldFaceCount+splits*2);

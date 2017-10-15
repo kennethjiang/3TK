@@ -58,7 +58,7 @@ describe("ConnectedBufferGeometry", function() {
             }
             expect(newGeometries.length).to.equal(expectedGeometriesCount);
         }
-
+/*
         it("Simple tetrahedron", function() {
             testFile("tetrahedron.stl", 1);
         });
@@ -74,11 +74,11 @@ describe("ConnectedBufferGeometry", function() {
         it("2 tetrahedrons that share an edge", function() {
             testFile("edge_connected_tetrahedrons.stl", 2);
         });
-
+*/
         it("27 cubes in 3 by 3 by 3 formation", function() {
             testFile("rubix.stl", 27);
         });
-
+/*
         it("27 cubes in 3 by 3 by 3 formation on an angle", function() {
             testFile("twisted_rubix.stl", 27);
         });
@@ -98,5 +98,5 @@ describe("ConnectedBufferGeometry", function() {
             let connectedBufferGeometry = new ConnectedBufferGeometry().fromBufferGeometry(geometry);
             expect(connectedBufferGeometry).to.be.null;
         });
-    });
+*/    });
 });

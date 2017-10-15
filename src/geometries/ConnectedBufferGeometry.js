@@ -419,6 +419,7 @@ class ConnectedBufferGeometry {
         let newGeometry = new THREE.BufferGeometry();
         let normals = [];
         let roundedCBG = this.clone();
+        roundedCBG.roundVerticesToFloat();
         for (let faceIndex = 0; faceIndex < roundedCBG.positions.length / 9; faceIndex++) {
             let posIndex = roundedCBG.positionFromFace(faceIndex);
             let normal = roundedCBG.faceNormal(faceIndex);

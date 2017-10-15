@@ -255,31 +255,6 @@ class ConnectedBufferGeometry {
             return facesAngle;
         }
 
-        // Given the faceIndex of an island, find all unconnected
-        // edges of that island.  Returns a set of indices into the
-        // positions.
-        let calculateFrontier = (islandIndex) => {
-            let visitedFaces = new Set();
-            let frontier = new Set();
-            let visit = (faceIndex) => {
-                if (!visitedFaces.has(faceIndex)) {
-                    visitedFaces.add(faceIndex);
-                    for (let edgeIndex = 0; edgeIndex < 3; edgeIndex++) {
-                        let neighbor = faces[faceIndex].neighbors[edgeIndex];
-                        if (neighbor === null) {
-                            // No neighbor so this edge is on the frontier.
-                            frontier.add(this.positionFromFaceEdge(faceIndex, edgeIndex));
-                        } else {
-                            // Visit the neighbor.
-                            visit(this.faceFromPosition(neighbor));
-                        }
-                    }
-                }
-            }
-            visit(islandIndex);
-            return frontier;
-        }
-
         while (unconnectedEdges.size > 0) {
             let foundOne = false;
             // Connect all edges that have just one neighbor.
@@ -296,29 +271,25 @@ class ConnectedBufferGeometry {
             if (foundOne) {
                 continue;
             }
-            // Try to join faces that are on the frontier of an
-            // island.  This makes for shapes that are smaller and better split.
-            let visitedIslands = new Set();
+            // Try to join edges that are already part of the same
+            // shape.  This makes for shapes that are smaller and
+            // better split.
             for (let posIndex of unconnectedEdges) {
-                let islandIndex = findIsland(this.faceFromPosition(posIndex));
-                if (!visitedIslands.has(islandIndex)) {
-                    // This is an unchecked island, now we look for
-                    // connectable edges on the frontier.
-                    visitedIslands.add(islandIndex); // Mark as visited.
-                    let frontier = calculateFrontier(islandIndex);
-                    for (let posIndex of frontier) {
-                        let faceIndex = this.faceFromPosition(posIndex);
-                        let edgeIndex = this.edgeFromPosition(posIndex);
-                        for (let neighborPosIndex of faces[faceIndex].possibleNeighbors[edgeIndex].keys()) {
-                            if (frontier.has(neighborPosIndex)) {
-                                // Two frontier edges that can be connected.
-                                connectEdge(posIndex, neighborPosIndex);
-                                foundOne = true;
-                            }
+                let faceIndex = this.faceFromPosition(posIndex);
+                let edgeIndex = this.edgeFromPosition(posIndex);
+                if (faces[faceIndex].neighbors[edgeIndex] == null) {
+                    let currentIsland = findIsland(faceIndex);
+                    for (let possibleNeighbor of faces[faceIndex].possibleNeighbors[edgeIndex].keys()) {
+                        if (findIsland(this.faceFromPosition(possibleNeighbor)) ==
+                            currentIsland) {
+                            connectEdge(this.positionFromFaceEdge(faceIndex, edgeIndex),
+                                        possibleNeighbor);
+                            foundOne = true;
                         }
                     }
                 }
             }
+
             if (foundOne) {
                 continue;
             }

@@ -7,7 +7,7 @@ describe("ConnectedBufferGeometry", function() {
     describe("isolatedBufferGeometries", function() {
         let testFile = function (filename, expectedGeometriesCount, writeShapes = false) {
             // Test that the number of shapes is as expected.
-            let stl = fs.readFileSync("test/" + filename, {encoding: "ascii"});
+            let stl = fs.readFileSync("test/" + filename, {encoding: "binary"});
             let geometry = new STLLoader().parse(stl);
             let connectedBufferGeometry = new ConnectedBufferGeometry().fromBufferGeometry(geometry);
             let newGeometries = connectedBufferGeometry.isolatedBufferGeometries(geometry);
@@ -89,6 +89,13 @@ describe("ConnectedBufferGeometry", function() {
         it("Big object: Dinosaur Jump", function() {
             this.timeout(20000);
             testFile("DINOSAUR_JUMP.stl", 1);
+        });
+
+        it("Non-manifold object", function () {
+            let stl = fs.readFileSync("test/tetrahedron_non_manifold.stl", {encoding: "binary"});
+            let geometry = new STLLoader().parse(stl);
+            let connectedBufferGeometry = new ConnectedBufferGeometry().fromBufferGeometry(geometry);
+            expect(connectedBufferGeometry).to.be.null;
         });
     });
 });

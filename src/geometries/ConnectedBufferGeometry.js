@@ -24,7 +24,9 @@ class ConnectedBufferGeometry {
     fromBufferGeometry(bufferGeometry) {
         this.positions = Array.from(bufferGeometry.getAttribute('position').array);
         this.colors = bufferGeometry.getAttribute('color') && Array.from(bufferGeometry.getAttribute('color').array);
-        this.findNeighbors();
+        if (!this.findNeighbors()) {
+            return null;
+        }
         this.deleteDegenerates();
         return this;
     }
@@ -359,6 +361,9 @@ class ConnectedBufferGeometry {
                 faces[this.faceFromPosition(worstPos)].possibleNeighbors[this.edgeFromPosition(worstPos)].delete(worstOtherPos);
                 faces[this.faceFromPosition(worstOtherPos)].possibleNeighbors[this.edgeFromPosition(worstOtherPos)].delete(worstPos);
                 foundOne = true;
+            } else {
+                // Couldn't find all neighbors.  Maybe the shape is non-manifold?
+                return false;
             }
         }
 
@@ -379,6 +384,7 @@ class ConnectedBufferGeometry {
                 this.neighbors[faceIndex*3 + edgeIndex] = neighbor === null ? null : neighbor / 3;
             }
         }
+        return true;
     }
 
     // Returns a list of isolated BufferGeometries.

@@ -611,25 +611,6 @@ class ConnectedBufferGeometry {
     mergeFaces() {
         const faceCount = this.positions.length / 9;
         let facesMerged = 0;
-        // must include
-        let faces = [];
-        //faces.push(200065);
-        //faces.push(200066);
-        //faces.push(200068);
-        //faces.push(207300);
-        //faces.push(204201);
-
-        faces.push(165710);
-        faces.push(165711);
-        faces.push(165714);
-        // 206562-206566
-        //for (let faceIndex = 206566; faceIndex < 206567; faceIndex++)
-        //{
-            //faces.push(faceIndex);
-        //}
-        faces.push(206562);
-        faces.push(206567);
-        //for (let faceIndex of faces) {
         for (let faceIndex = 0; faceIndex < faceCount; faceIndex++) {
             for (let edgeIndex = 0; edgeIndex < 3; edgeIndex++) {
                 //console.log("reverse island of " + faceIndex + " is " + this.reverseIslands[faceIndex]);

@@ -328,7 +328,7 @@ class ConnectedBufferGeometry {
             // of two shapes sharing a face.
             let worstPos;
             let worstOtherPos;
-            let worstAngle = -Infinity;
+            let worstAngle = null;
             for (let posIndex of unconnectedEdges) {
                 let faceIndex = this.faceFromPosition(posIndex);
                 let edgeIndex = this.edgeFromPosition(posIndex);
@@ -339,15 +339,21 @@ class ConnectedBufferGeometry {
                         angle = facesAngle(posIndex, this.nextPositionInFace(otherPosIndex));
                         faces[faceIndex].possibleNeighbors[edgeIndex].set(otherPosIndex, angle);
                     }
-                    // The worst angle is the largest one.
-                    if (angle > worstAngle) {
+                    const EPSILON = 0.001;
+                    let differenceFrom180 = Math.abs(Math.PI-angle);
+                    let worstDifferenceFrom180 = Math.abs(Math.PI-worstAngle);
+                    // The worst angle is anything too close to 0 or
+                    // 2PI.  After that, remove the largest one.
+                    if (worstAngle === null ||
+                        worstDifferenceFrom180 > Math.PI-EPSILON && differenceFrom180 >= worstDifferenceFrom180 ||
+                        !(worstDifferenceFrom180 > Math.PI-EPSILON) && angle > worstAngle) {
                         worstAngle = angle;
                         worstPos = posIndex;
                         worstOtherPos = otherPosIndex;
                     }
                 }
             }
-            if (worstAngle != -Infinity) { // This had better be true!
+            if (worstAngle != null) { // This had better be true!
                 // Remove the possible neighbor in both directions.
                 faces[this.faceFromPosition(worstPos)].possibleNeighbors[this.edgeFromPosition(worstPos)].delete(worstOtherPos);
                 faces[this.faceFromPosition(worstOtherPos)].possibleNeighbors[this.edgeFromPosition(worstOtherPos)].delete(worstPos);
@@ -378,7 +384,7 @@ class ConnectedBufferGeometry {
     isolatedBufferGeometries() {
         let geometries = [];
         let islands = new Map();
-        for (let face of this.reverseIslands) {
+        for (let face = 0; face < this.reverseIslands.length; face++) {
             let root = this.reverseIslands[face];
             if (!Number.isInteger(root)) {
                 continue;
@@ -574,7 +580,9 @@ class ConnectedBufferGeometry {
             return 1;
         }
         let splitsMade = 0;
-        for (let f = 0; f < positions.length/9; f++) {
+
+        const faceCount = positions.length/9;
+        for (let f = 0; f < faceCount; f++) {
             for (let e = 0; e < 3; e++) {
                 splitsMade += splitFace(f, e, plane);
             }

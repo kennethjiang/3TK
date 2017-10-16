@@ -506,9 +506,10 @@ class ConnectedBufferGeometry {
 
            If the edge crosses the plane, split the face into two
            faces.  One face is modified in place, the other is added
-           to the end of the faces array.  The neighboring face is
-           adjusted and a new neighbor is made, too.  this.neighbors
-           and this.islands are updated.
+           to the end of the faces array.  The faces that are added to
+           the end is the one that doesn't require more splitting.
+           The neighboring face is adjusted and a new neighbor is
+           made, too.  this.neighbors and this.islands are updated.
         */
         let splitFace = (faceIndex, edgeIndex, plane) => {
             let [position, nextPosition, previousPosition] =

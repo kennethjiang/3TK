@@ -750,14 +750,14 @@ class ConnectedBufferGeometry {
         do {
             totalDegeneratesRemoved += degeneratesRemoved;
             degeneratesRemoved = 0;
-            degeneratesRemoved += this.removeDegenerates0(faces);
-            degeneratesRemoved += this.removeDegenerates180(faces);
+            degeneratesRemoved += this.removeDegenerates0Angle(faces);
+            degeneratesRemoved += this.removeDegeneratesDoubleConnected(faces);
         } while(degeneratesRemoved > 0);
         return totalDegeneratesRemoved;
     }
 
     // Remove degenerates where two of 3 vertices are the same.
-    removeDegenerates0(faces) {
+    removeDegenerates0Angle(faces) {
         let degeneratesRemoved = 0;
         for (let faceIndex of faces) {
             if (this.reverseIslands[faceIndex] === null) {
@@ -787,8 +787,9 @@ class ConnectedBufferGeometry {
         return degeneratesRemoved;
     }
 
-    // Remove degenerates where two faces share more than one edge but not all 3 edges.
-    removeDegenerates180(faces) {
+    // Remove degenerates where two faces share more than one edge but
+    // not all 3 edges.
+    removeDegeneratesDoubleConnected(faces) {
         let degeneratesRemoved = 0;
         for (let faceIndex of faces) {
             if (this.reverseIslands[faceIndex] === null) {

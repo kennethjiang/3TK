@@ -217,6 +217,26 @@ class ConnectedBufferGeometry {
             }
         }
 
+        // Returns the angle between faces 0 to 2pi.
+        // A smaller angle indicates less enclosed space.
+        // Assumes that the common edge is posIndex1 to posIndex1+3 and
+        // posIndex2 to posIndex2-3.
+        let facesAngle = (posIndex1, posIndex2) => {
+            let normal1 = this.faceNormal(this.faceFromPosition(posIndex1));
+            let normal2 = this.faceNormal(this.faceFromPosition(posIndex2));
+            let commonPoint1 = this.vector3FromPosition(posIndex1, this.positions);
+            let commonPoint2 = this.vector3FromPosition(this.nextPositionInFace(posIndex1), this.positions);
+            let edge1 = commonPoint2.clone().sub(commonPoint1);
+            let normalsAngle = normal1.angleTo(normal2); // Between 0 and pi.
+            let facesAngle = Math.PI;
+            if (normal1.clone().cross(normal2).dot(edge1) > 0) {
+                facesAngle -= normalsAngle;
+            } else {
+                facesAngle += normalsAngle;
+            }
+            return facesAngle;
+        }
+
         // Set the face-edge at posIndex2 to be the neighbor of the
         // face-edge at posIndex1.  This function should also be run
         // with arguments swapped to make the connection symmetric.
@@ -244,26 +264,6 @@ class ConnectedBufferGeometry {
             // Finally, remove from the set of edges that still need to be resolved.
             unconnectedEdges.delete(posIndex1);
             unconnectedEdges.delete(posIndex2);
-        }
-
-        // Returns the angle between faces 0 to 2pi.
-        // A smaller angle indicates less enclosed space.
-        // Assumes that the common edge is posIndex1 to posIndex1+3 and
-        // posIndex2 to posIndex2-3.
-        let facesAngle = (posIndex1, posIndex2) => {
-            let normal1 = this.faceNormal(this.faceFromPosition(posIndex1));
-            let normal2 = this.faceNormal(this.faceFromPosition(posIndex2));
-            let commonPoint1 = this.vector3FromPosition(posIndex1, this.positions);
-            let commonPoint2 = this.vector3FromPosition(this.nextPositionInFace(posIndex1), this.positions);
-            let edge1 = commonPoint2.clone().sub(commonPoint1);
-            let normalsAngle = normal1.angleTo(normal2); // Between 0 and pi.
-            let facesAngle = Math.PI;
-            if (normal1.clone().cross(normal2).dot(edge1) > 0) {
-                facesAngle -= normalsAngle;
-            } else {
-                facesAngle += normalsAngle;
-            }
-            return facesAngle;
         }
 
         while (unconnectedEdges.size > 0) {

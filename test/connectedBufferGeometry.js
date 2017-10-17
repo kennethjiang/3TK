@@ -59,7 +59,7 @@ describe("ConnectedBufferGeometry", function() {
             }
             expect(newGeometries.length).to.equal(expectedGeometriesCount);
         }
-/*
+
         it("Simple tetrahedron", function() {
             testFile("tetrahedron.stl", 1);
         });
@@ -79,11 +79,11 @@ describe("ConnectedBufferGeometry", function() {
         it("27 cubes in 3 by 3 by 3 formation", function() {
             testFile("rubix.stl", 27);
         });
-*/
+
         it("27 cubes in 3 by 3 by 3 formation on an angle", function() {
             testFile("twisted_rubix.stl", 27);
         });
-/*
+
         it("27 cubes in 3 by 3 by 3 formation with facets in lightly shuffled order", function() {
             testFile("shuffled_rubix.stl", 27);
         });
@@ -92,7 +92,7 @@ describe("ConnectedBufferGeometry", function() {
             this.timeout(20000);
             testFile("DINOSAUR_JUMP.stl", 1);
         });
-*/
+
         it("Non-manifold object", function () {
             let stl = fs.readFileSync("test/tetrahedron_non_manifold.stl", {encoding: "binary"});
             let geometry = new STLLoader().parse(stl);

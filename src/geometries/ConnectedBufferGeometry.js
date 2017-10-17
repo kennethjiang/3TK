@@ -496,6 +496,10 @@ class ConnectedBufferGeometry {
     // Split all edges in this geometry so that there are no edges
     // that cross the plane.
     splitFaces(plane) {
+        // Maintain a list of positions that intersect the plane.
+        // Each position is on the plane.
+        let splitPositions = new Set();
+
         /* Given the face and edge index, split that edge at the point
            where it crosses the plane.
 
@@ -511,6 +515,13 @@ class ConnectedBufferGeometry {
         let splitFace = (faceIndex, edgeIndex, plane) => {
             let positions = []; // 2D array, element 0 is for current face, element 1 for neighbor.
             positions[0] = this.positionsFromFace(faceIndex, edgeIndex);
+            if (splitPositions.has(positions[0][0]) || splitPositions.has(positions[0][1])) {
+                // One of the end ponts is already split so there's no
+                // need to split here.  This saves us from creating
+                // degenerate triangles when the interseciton
+                // calculation isn't an exact value.
+                return 0;
+            }
             positions[1] = [this.getNeighborPosition(positions[0][0])];
             positions[1].push(this.nextPositionInFace(positions[1][0]), this.previousPositionInFace(positions[1][0]));
             let vertices = []; // 2D array, element 0 is for current face, element 1 for neighbor.
@@ -546,15 +557,17 @@ class ConnectedBufferGeometry {
             for (let i = 0; i < 2; i++) {
                 // The intersectionPoint replaces the vertex from above.
                 this.setPointsInArray([intersectionPoint], this.positions, positions[i][vertexToMove[i]]);
+                splitPositions.add(positions[i][vertexToMove[i]]);
                 // A new face needs to be added for the other side of the triangle.
                 if (vertexToMove[i] == 0) {
                     this.setPointsInArray([vertices[i][2], vertices[i][0], intersectionPoint],
                                           this.positions, this.positions.length);
+                    splitPositions.add(this.positions.length-3);
                 } else {
                     this.setPointsInArray([intersectionPoint, vertices[i][1], vertices[i][2]],
                                           this.positions, this.positions.length);
+                    splitPositions.add(this.positions.length-9);
                 }
-                //return 1;
             }
 
             if (this.colors) {

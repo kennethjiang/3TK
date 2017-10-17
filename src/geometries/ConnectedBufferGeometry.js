@@ -496,9 +496,6 @@ class ConnectedBufferGeometry {
     // Split all edges in this geometry so that there are no edges
     // that cross the plane.
     splitFaces(plane) {
-        let positions = this.positions;
-        let colors = this.colors;
-
         /* Given the face and edge index, split that edge at the point
            where it crosses the plane.
 
@@ -512,79 +509,119 @@ class ConnectedBufferGeometry {
            made, too.  this.neighbors and this.islands are updated.
         */
         let splitFace = (faceIndex, edgeIndex, plane) => {
-            let [position, nextPosition, previousPosition] =
-                this.positionsFromFace(faceIndex, edgeIndex);
-            let [edgeStart, edgeEnd, thirdVertex] =
-                this.vector3sFromPositions([position, nextPosition, previousPosition],
-                                           positions);
+            let positions = []; // 2D array, element 0 is for current face, element 1 for neighbor.
+            positions[0] = this.positionsFromFace(faceIndex, edgeIndex);
+            positions[1] = [this.getNeighborPosition(positions[0][0])];
+            positions[1].push(this.nextPositionInFace(positions[1][0]), this.previousPositionInFace(positions[1][0]));
+            let vertices = []; // 2D array, element 0 is for current face, element 1 for neighbor.
+            for (let i = 0; i < 2; i++) {
+                vertices[i] = this.vector3sFromPositions(positions[i], this.positions);
+            }
 
-            let neighborPosition = this.getNeighborPosition(position);
-            let neighborNextPosition = this.nextPositionInFace(neighborPosition);
-            let neighborPreviousPosition = this.previousPositionInFace(neighborPosition);
-            let [neighborEdgeStart, neighborEdgeEnd, neighborThirdVertex] =
-                this.vector3sFromPositions([neighborPosition, neighborNextPosition, neighborPreviousPosition],
-                                           positions);
-
-            let edge = new THREE.Line3(edgeStart, edgeEnd);
+            let edge = new THREE.Line3(vertices[0][0], vertices[1][0]);
             let intersectionPoint = plane.intersectLine(edge);
             if (intersectionPoint === undefined ||
-                this.keyForVector3(intersectionPoint) == this.keyForVector3(edgeStart) ||
-                this.keyForVector3(intersectionPoint) == this.keyForVector3(edgeEnd)) {
+                this.keyForVector3(intersectionPoint) == this.keyForVector3(vertices[0][0]) ||
+                this.keyForVector3(intersectionPoint) == this.keyForVector3(vertices[0][1])) {
                 return 0;
             }
-            // The intersectionPoint replaces edgeEnd.
-            this.setPointsInArray([intersectionPoint], positions, nextPosition);
-            // A new face needs to be added for the other side of the triangle.
-            this.setPointsInArray([intersectionPoint, edgeEnd, thirdVertex],
-                                  positions, positions.length);
-            // The intersectionPoint also replaces neighborEdgeEnd.
-            this.setPointsInArray([intersectionPoint], positions, neighborNextPosition);
-            // A new face needs to be added for the neighbor other side.
-            this.setPointsInArray([intersectionPoint, neighborEdgeEnd, neighborThirdVertex],
-                                  positions, positions.length);
-            if (colors) {
-                // The new face colors must be added.
-                let alpha = edgeStart.distanceTo(intersectionPoint) / edgeStart.distanceTo(edgeEnd);
-                let [startColor, endColor, thirdColor] =
-                    this.colorsFromPositions([position, nextPosition, previousPosition],
-                                             colors)
-                let [neighborStartColor, neighborEndColor, neighborThirdColor] =
-                    this.colorsFromPositions([neighborPosition, neighborNextPosition, neighborPreviousPosition],
-                                             colors);
-                let intersectionColor = startColor.clone().lerp(endColor, alpha);
-                // The original face's colors must be adjusted.
-                this.setColorsInArray([intersectionColor], colors, nextPosition);
-                // New face colors need to be added.
-                this.setColorsInArray([intersectionColor, endColor, thirdColor],
-                                      colors, colors.length);
-                // The original neighbor's face's colors must be adjusted.
-                this.setColorsInArray([intersectionColor], colors, neighborNextPosition);
-                // New face colors need to be added for neighbor.
-                this.setColorsInArray([intersectionColor, neighborEndColor, neighborThirdColor],
-                                      colors, colors.length);
+
+            let vertexToMove = [];
+            for (let i = 0; i < 2; i++) {
+                let secondIntersectionPoint = plane.intersectLine(new THREE.Line3(vertices[i][0], vertices[i][2]));
+                // Which vertex needs to be moved to the intersection
+                // so that the new face created won't need further
+                // splitting?
+                if (secondIntersectionPoint === undefined ||
+                    this.keyForVector3(secondIntersectionPoint) == this.keyForVector3(vertices[i][0]) ||
+                    this.keyForVector3(secondIntersectionPoint) == this.keyForVector3(vertices[i][2])) {
+                    // No intersection with plane from position 0 to
+                    // position 2, so let that be part of the new face.
+                    vertexToMove[i] = 0;
+                } else {
+                    vertexToMove[i] = 1;
+                }
+            }
+
+            for (let i = 0; i < 2; i++) {
+                // The intersectionPoint replaces the vertex from above.
+                this.setPointsInArray([intersectionPoint], this.positions, positions[i][vertexToMove[i]]);
+                // A new face needs to be added for the other side of the triangle.
+                if (vertexToMove[i] == 0) {
+                    this.setPointsInArray([vertices[i][2], vertices[i][0], intersectionPoint],
+                                          this.positions, this.positions.length);
+                } else {
+                    this.setPointsInArray([intersectionPoint, vertices[i][1], vertices[i][2]],
+                                          this.positions, this.positions.length);
+                }
+                //return 1;
+            }
+
+            if (this.colors) {
+                for (let i = 0; i < 2; i++) {
+                    // The new face colors must be added.
+                    let alpha = vertices[i][0].distanceTo(intersectionPoint) / vertices[i][0].distanceTo(vertices[i][1]);
+                    let colors = [];
+                    colors = this.colorsFromPositions(positions[i], this.colors);
+                    let intersectionColor = colors[0].clone().lerp(colors[1], alpha);
+                    // The original face's colors must be adjusted.
+                    this.setColorsInArray([intersectionColor], this.colors, positions[i][vertexToMove[i]]);
+                    // New face colors need to be added.
+                    if (vertexToMove[i] == 0) {
+                        this.setColorsInArray([colors[2], colors[0], intersectionColor],
+                                              this.colors, this.colors.length);
+                    } else {
+                        this.setColorsInArray([intersectionColor, colors[1], colors[2]],
+                                              this.colors, this.colors.length);
+                    }
+                }
             }
             // Add to this.neighbors
             let newNeighborIndex = this.neighbors.length;
-            this.neighbors.push(neighborPosition/3,
-                                this.neighbors[nextPosition/3],
-                                nextPosition/3);
-            this.neighbors.push(position/3,
-                                this.neighbors[neighborNextPosition/3],
-                                neighborNextPosition/3);
+            if (vertexToMove[0] == 1 && vertexToMove[1] == 1) {
+                this.neighbors.push(positions[1][0]/3,
+                                    this.neighbors[positions[0][1]/3],
+                                    positions[0][1]/3);
+                this.neighbors.push(positions[0][0]/3,
+                                    this.neighbors[positions[1][1]/3],
+                                    positions[1][1]/3);
+            } else if (vertexToMove[0] == 0 && vertexToMove[1] == 0) {
+                this.neighbors.push(this.neighbors[positions[0][2]/3],
+                                    positions[1][0]/3,
+                                    positions[0][2]/3);
+                this.neighbors.push(this.neighbors[positions[1][2]/3],
+                                    positions[0][0]/3,
+                                    positions[1][2]/3);
+            } else if (vertexToMove[0] == 1 && vertexToMove[1] == 0) {
+                this.neighbors.push(newNeighborIndex + 4,
+                                    this.neighbors[positions[0][1]/3],
+                                    positions[0][1]/3);
+                this.neighbors.push(this.neighbors[positions[1][2]/3],
+                                    newNeighborIndex,
+                                    positions[1][2]/3);
+            } else if (vertexToMove[0] == 0 && vertexToMove[1] == 1) {
+                this.neighbors.push(this.neighbors[positions[0][2]/3],
+                                    newNeighborIndex + 3,
+                                    positions[0][2]/3);
+                this.neighbors.push(newNeighborIndex + 1,
+                                    this.neighbors[positions[1][1]/3],
+                                    positions[1][1]/3);
+            }
+
             // Make the above assignments symmetric.
             for (let i = newNeighborIndex; i < newNeighborIndex+6; i++) {
                 this.neighbors[this.neighbors[i]] = i;
             }
             // Update the reverseIslands.
-            this.reverseIslands[this.faceFromPosition(positions.length-18)] =
-                this.reverseIslands[this.faceFromPosition(position)];
-            this.reverseIslands[this.faceFromPosition(positions.length- 9)] =
-                this.reverseIslands[this.faceFromPosition(neighborPosition)];
+            this.reverseIslands[this.faceFromPosition(this.positions.length-18)] =
+                this.reverseIslands[this.faceFromPosition(positions[0][0])];
+            this.reverseIslands[this.faceFromPosition(this.positions.length- 9)] =
+                this.reverseIslands[this.faceFromPosition(positions[1][0])];
             return 1;
         }
         let splitsMade = 0;
 
-        const faceCount = positions.length/9;
+        const faceCount = this.positions.length/9;
         for (let f = 0; f < faceCount; f++) {
             for (let e = 0; e < 3; e++) {
                 splitsMade += splitFace(f, e, plane);

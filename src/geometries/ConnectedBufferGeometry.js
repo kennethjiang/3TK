@@ -724,7 +724,7 @@ class ConnectedBufferGeometry {
                     }
                 } while (currentPosition != startPosition);
                 if (currentPosition == startPosition) {
-                    //console.log("collapse " + faceIndex);
+                    this.debugLog("collapse " + faceIndex);
                     this.debugLog(start);
                     this.debugLog(next);
                     // We didn't break so this triangle should be collapsable.
@@ -760,6 +760,10 @@ class ConnectedBufferGeometry {
     removeDegenerates0(faces) {
         let degeneratesRemoved = 0;
         for (let faceIndex of faces) {
+            if (this.reverseIslands[faceIndex] === null) {
+                // Already going to be removed.
+                continue;
+            }
             // Find if there are two identical vertices.
             let edgeIndex = 0;
             for (; edgeIndex < 3; edgeIndex++) {
@@ -787,6 +791,10 @@ class ConnectedBufferGeometry {
     removeDegenerates180(faces) {
         let degeneratesRemoved = 0;
         for (let faceIndex of faces) {
+            if (this.reverseIslands[faceIndex] === null) {
+                // Already going to be removed.
+                continue;
+            }
             // Find if there is a face that is connected exactly twice.
             let edgeIndex = 0;
             for (; edgeIndex < 3; edgeIndex++) {

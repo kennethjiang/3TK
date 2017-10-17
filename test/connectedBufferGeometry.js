@@ -7,7 +7,7 @@ describe("ConnectedBufferGeometry", function() {
     describe("isolatedBufferGeometries", function() {
         let testFile = function (filename, expectedGeometriesCount, writeShapes = true) {
             // Test that the number of shapes is as expected.
-            let stl = fs.readFileSync("test/" + filename, {encoding: "binary"});
+            let stl = fs.readFileSync("test/" + filename + ".stl", {encoding: "binary"});
             let geometry = new STLLoader().parse(stl);
             let connectedBufferGeometry = new ConnectedBufferGeometry().fromBufferGeometry(geometry);
             let newGeometries = connectedBufferGeometry.isolatedBufferGeometries(geometry);
@@ -33,7 +33,7 @@ describe("ConnectedBufferGeometry", function() {
                 let mesh = new THREE.Mesh(connectedBufferGeometry.bufferGeometry());
                 let obj = new THREE.Object3D();
                 obj.add(mesh);
-                fs.writeFileSync(filename + " _split.stl", new Buffer(new STLExporter().parse(obj)), 'ascii');
+                fs.writeFileSync(filename + "_split.stl", new Buffer(new STLExporter().parse(obj)), 'ascii');
             }
             expect(splits).to.be.greaterThan(0);
             let newFaceCount = connectedBufferGeometry.positions.length/9;
@@ -58,39 +58,50 @@ describe("ConnectedBufferGeometry", function() {
                 }
             }
             expect(newGeometries.length).to.equal(expectedGeometriesCount);
+
+            // Merging faces should not affect the number of shapes.
+            connectedBufferGeometry.mergeFaces();
+            if (writeShapes) {
+                let mesh = new THREE.Mesh(connectedBufferGeometry.bufferGeometry());
+                let obj = new THREE.Object3D();
+                obj.add(mesh);
+                fs.writeFileSync(filename + "_merged.stl", new Buffer(new STLExporter().parse(obj)), 'ascii');
+            }
+
+            expect(newGeometries.length).to.equal(expectedGeometriesCount);
         }
 
         it("Simple tetrahedron", function() {
-            testFile("tetrahedron.stl", 1);
+            testFile("tetrahedron", 1);
         });
 
         it("Split ruler with degenerate facets", function() {
-            testFile("lungo.stl", 2);
+            testFile("lungo", 2);
         });
 
         it("2 tetrahedrons that share a face", function() {
-            testFile("face_connected_tetrahedrons.stl", 2);
+            testFile("face_connected_tetrahedrons", 2);
         });
 
         it("2 tetrahedrons that share an edge", function() {
-            testFile("edge_connected_tetrahedrons.stl", 2);
+            testFile("edge_connected_tetrahedrons", 2);
         });
 
         it("27 cubes in 3 by 3 by 3 formation", function() {
-            testFile("rubix.stl", 27);
+            testFile("rubix", 27);
         });
 
         it("27 cubes in 3 by 3 by 3 formation on an angle", function() {
-            testFile("twisted_rubix.stl", 27);
+            testFile("twisted_rubix", 27);
         });
 
         it("27 cubes in 3 by 3 by 3 formation with facets in lightly shuffled order", function() {
-            testFile("shuffled_rubix.stl", 27);
+            testFile("shuffled_rubix", 27);
         });
 
         it("Big object: Dinosaur Jump", function() {
-            this.timeout(20000);
-            testFile("DINOSAUR_JUMP.stl", 1);
+            this.timeout(30000);
+            testFile("DINOSAUR_JUMP", 1);
         });
 
         it("Non-manifold object", function () {

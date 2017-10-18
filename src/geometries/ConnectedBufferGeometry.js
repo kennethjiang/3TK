@@ -671,7 +671,6 @@ class ConnectedBufferGeometry {
         let facesMerged = 0;
         for (let faceIndex = 0; faceIndex < faceCount; faceIndex++) {
             for (let edgeIndex = 0; edgeIndex < 3; edgeIndex++) {
-                //console.log("reverse island of " + faceIndex + " is " + this.reverseIslands[faceIndex]);
                 if (!Number.isInteger(this.reverseIslands[faceIndex])) {
                     // This face is already a degenerate from previous
                     // merge operations but not yet deleted from
@@ -865,7 +864,6 @@ class ConnectedBufferGeometry {
                 // Nothing to do.
                 continue;
             }
-            console.log("found one");
             // Try to find largest angle, it should be the 180
             // degree angle.
             let largestIndex = 0;

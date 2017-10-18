@@ -373,8 +373,10 @@ class ConnectedBufferGeometry {
     isolatedBufferGeometries() {
         let geometries = [];
         let islands = new Map();
-        for (let face = 0; face < this.reverseIslands.length; face++) {
-            let root = this.reverseIslands[face];
+        let rounded = this.clone();
+        rounded.roundVerticesToFloat();
+        for (let face = 0; face < rounded.reverseIslands.length; face++) {
+            let root = rounded.reverseIslands[face];
             if (!Number.isInteger(root)) {
                 continue;
             }
@@ -391,14 +393,14 @@ class ConnectedBufferGeometry {
             let colors = [];
 
             for (let faceIndex of island) {
-                let posIndex = this.positionFromFace(faceIndex);
+                let posIndex = rounded.positionFromFace(faceIndex);
                 for (var i = 0; i < 9; i++) {
-                    vertices.push(this.positions[posIndex + i]);
-                    if (this.colors) {
-                        colors.push(this.colors[posIndex + i]);
+                    vertices.push(rounded.positions[posIndex + i]);
+                    if (rounded.colors) {
+                        colors.push(rounded.colors[posIndex + i]);
                     }
                 }
-                let normal = this.faceNormal(faceIndex);
+                let normal = rounded.faceNormal(faceIndex);
                 for (let i = 0; i < 3; i++) {
                     normals.push(normal.x, normal.y, normal.z);
                 }
@@ -406,7 +408,7 @@ class ConnectedBufferGeometry {
 
             newGeometry.addAttribute('position', new THREE.BufferAttribute(new Float32Array(vertices), 3));
             newGeometry.addAttribute('normal', new THREE.BufferAttribute(new Float32Array(normals), 3));
-            if (this.colors) {
+            if (rounded.colors) {
                 newGeometry.addAttribute('color', new THREE.BufferAttribute(new Float32Array(colors), 3));
             }
             geometries.push(newGeometry);
@@ -438,12 +440,15 @@ class ConnectedBufferGeometry {
     // round vertices to the nearest Float32 value.  This eliminates
     // degenerates when saving the file.
     roundVerticesToFloat() {
-        if (this.colors) {
-            this.colors = Array.from(new Float32Array(this.colors));
-        }
         this.positions = Array.from(new Float32Array(this.positions));
-        this.removeDegenerates(new Array(this.positions.length/9).keys());
+        this.removeDegenerates(Array.from(new Array(this.positions.length/9).keys()));
         this.deleteDegenerates();
+        let normal0Count = 0;
+        for (let f=0; f < this.positions.length/9; f++) {
+            if (this.faceNormal(f).length() == 0) {
+                normal0Count++;
+            }
+        }
     }
 
     // Returns all positions in the face, starting from the vertex specified.
@@ -523,7 +528,8 @@ class ConnectedBufferGeometry {
                 return 0;
             }
             positions[1] = [this.getNeighborPosition(positions[0][0])];
-            positions[1].push(this.nextPositionInFace(positions[1][0]), this.previousPositionInFace(positions[1][0]));
+            positions[1].push(this.nextPositionInFace(positions[1][0]),
+                              this.previousPositionInFace(positions[1][0]));
             let vertices = []; // 2D array, element 0 is for current face, element 1 for neighbor.
             for (let i = 0; i < 2; i++) {
                 vertices[i] = this.vector3sFromPositions(positions[i], this.positions);
@@ -745,14 +751,24 @@ class ConnectedBufferGeometry {
     }
 
     removeDegenerates(faces) {
-        let degeneratesRemoved = 0;
+        let previousTotalDegeneratesRemoved = 0;
         let totalDegeneratesRemoved = 0;
+        let degeneratesRemoved = 0;
         do {
-            totalDegeneratesRemoved += degeneratesRemoved;
-            degeneratesRemoved = 0;
-            degeneratesRemoved += this.removeDegenerates0Angle(faces);
-            degeneratesRemoved += this.removeDegeneratesDoubleConnected(faces);
-        } while(degeneratesRemoved > 0);
+            previousTotalDegeneratesRemoved = totalDegeneratesRemoved;
+            do {
+                totalDegeneratesRemoved += degeneratesRemoved;
+                degeneratesRemoved = this.removeDegenerates0Angle(faces);
+            } while (degeneratesRemoved);
+            do {
+                totalDegeneratesRemoved += degeneratesRemoved;
+                degeneratesRemoved = this.removeDegeneratesDoubleConnected(faces);
+            } while (degeneratesRemoved);
+            do {
+                totalDegeneratesRemoved += degeneratesRemoved;
+                degeneratesRemoved = this.removeDegenerates180Angle(faces);
+            } while (degeneratesRemoved);
+        } while(previousTotalDegeneratesRemoved != totalDegeneratesRemoved);
         return totalDegeneratesRemoved;
     }
 
@@ -775,9 +791,10 @@ class ConnectedBufferGeometry {
                     let edge1 = nextPosition;
                     let edge2 = this.nextPositionInFace(edge1);
                     // Connect their neighbors.
-                    if (Number.isInteger(this.neighbors[edge1/3]) &&
-                        Number.isInteger(this.neighbors[edge2/3])) {
+                    if (Number.isInteger(this.neighbors[edge1/3])) {
                         this.neighbors[this.neighbors[edge1/3]] = this.neighbors[edge2/3];
+                    }
+                    if (Number.isInteger(this.neighbors[edge2/3])) {
                         this.neighbors[this.neighbors[edge2/3]] = this.neighbors[edge1/3];
                     }
                     this.reverseIslands[faceIndex] = null;
@@ -821,6 +838,76 @@ class ConnectedBufferGeometry {
                     this.reverseIslands[otherFaceIndex] = null;
                 }
             }
+        }
+        return degeneratesRemoved;
+    }
+
+    // Reconnect faces with a normal of 0 due to a 180 degree angle so
+    // that the output will have only faces with normal non-zero.  We
+    // check if the normal is 0 as a 32-bit float.
+    removeDegenerates180Angle(faces) {
+        let degeneratesRemoved = 0;
+        for (let faceIndex of faces) {
+            if (this.reverseIslands[faceIndex] === null ||
+                this.isFaceDegenerate(faceIndex)) {
+                // Already going to be removed or is degenerate.
+                continue;
+            }
+            // positions[0] for current face, positions[1] for
+            // neighbor.
+            let positions = [];
+            positions[0] = this.positionsFromFace(faceIndex, 0);
+            let vertices = [];
+            vertices[0] = this.vector3sFromPositions(positions[0], this.positions);
+            let normal = new THREE.Triangle(...vertices[0]).normal().length();
+            let floatNormal = Array.from(new Float32Array([normal]))[0];
+            if (floatNormal != 0 ) {
+                // Nothing to do.
+                continue;
+            }
+            console.log("found one");
+            // Try to find largest angle, it should be the 180
+            // degree angle.
+            let largestIndex = 0;
+            let largestAngle = -Infinity;
+            for (let i = 0; i < 3; i++) {
+                let left = vertices[0][i % 3];
+                let middle = vertices[0][(i+1) % 3];
+                let right = vertices[0][(i+2) % 3];
+                let angle = left.clone().sub(middle).angleTo(right.clone().sub(middle));
+                if (angle > largestAngle) {
+                    largestIndex = (i+1) % 3; // The middle point of a 180 degree angle.
+                    largestAngle = angle;
+                }
+            }
+            // Move positions so that positions[0][1] sits on the line
+            // between positions[0][0] and positions[0][2].
+            positions[0] = this.positionsFromFace(faceIndex, (largestIndex+2) % 3);
+            // Get neighbors so that positions[0][2] is connected to
+            // positions[1][0] and positions[1][2] is connected to
+            // positions[0][0].
+            positions[1] = [this.nextPositionInFace(this.getNeighborPosition(positions[0][2]))];
+            positions[1].push(this.nextPositionInFace(positions[1][0]),
+                              this.previousPositionInFace(positions[1][0]));
+            for (let i = 0; i < 2; i++) {
+                vertices[i] = this.vector3sFromPositions(positions[i], this.positions);
+            }
+            for (let i = 0; i < 2; i++) {
+                this.setPointsInArray([vertices[i][1]], this.positions, positions[1-i][2]);
+            }
+            // Adjust neighbors.
+            for (let i=0; i < 2; i++) {
+                this.neighbors[positions[  i][2]/3] = this.neighbors[positions[1-i][1]/3];
+                this.neighbors[positions[1-i][1]/3] =                positions[  i][1]/3;
+            }
+            // Make the above assignments symmetric.
+            for (let i = 0; i < 2; i++) {
+                for (let j = 0; j < 3; j++) {
+                    this.neighbors[this.neighbors[positions[i][j]/3]] = positions[i][j]/3;
+                }
+            }
+
+            degeneratesRemoved++;
         }
         return degeneratesRemoved;
     }

@@ -27,7 +27,7 @@ describe("ConnectedBufferGeometry", function() {
             let boundingBox = geometry.boundingBox;
             let oldFaceCount = connectedBufferGeometry.positions.length/9;
             let splits = connectedBufferGeometry.splitFaces(new THREE.Plane(
-                new THREE.Vector3(1,0,0), -(boundingBox.max.x + boundingBox.min.x)/2));
+                new THREE.Vector3(1,0,0), -((boundingBox.max.x*2 + boundingBox.min.x)/3)));
 
             if (writeShapes) {
                 let mesh = new THREE.Mesh(connectedBufferGeometry.bufferGeometry());

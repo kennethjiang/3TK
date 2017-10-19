@@ -110,5 +110,17 @@ describe("ConnectedBufferGeometry", function() {
             let connectedBufferGeometry = new ConnectedBufferGeometry().fromBufferGeometry(geometry);
             expect(connectedBufferGeometry).to.be.null;
         });
+
+/*        it("lungo just merge", function () {
+            let stl = fs.readFileSync("test/lungo.stl", {encoding: "binary"});
+            let geometry = new STLLoader().parse(stl);
+            let connectedBufferGeometry = new ConnectedBufferGeometry().fromBufferGeometry(geometry);
+            connectedBufferGeometry.mergeFaces();
+            let mesh = new THREE.Mesh(connectedBufferGeometry.bufferGeometry());
+            let obj = new THREE.Object3D();
+            obj.add(mesh);
+            fs.writeFileSync("lungo_merged.stl", new Buffer(new STLExporter().parse(obj)), 'ascii');
+        });
+*/
     });
 });

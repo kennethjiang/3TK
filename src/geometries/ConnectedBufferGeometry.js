@@ -652,100 +652,75 @@ class ConnectedBufferGeometry {
     debugLog(...args) {
         //console.log(...args);
     }
+
     // Merge faces where possible.
     //
     // Look for edges where one of the points could be moved to the
-    // other point without affecting the shape.  Either:
+    // other point without affecting the shape.  To check this, we
+    // look at the normals of all affected faces before and after the
+    // move.  The two faces adjacent to the collapsed edge should
+    // become degenerate.  The rest should have their normals
+    // unchanged.  If that's true, the collapse is valid.
     //
-    // All the faces attached to the vertex to move are coplanar, so
-    // it's a face in the middle of a flat spot, or:
+    // Normal unchanged means that the the normal before and after are
+    // the same within a small tollerance, like 0.0001.
     //
-    // It's between two edges that are colinear and the two sides are
-    // all coplanar faces.  It's a point in the middle of the shape's
-    // edge.
-    //
-    // The faces that are merged out of existence are left in place as
-    // degenerate faces.
+    // The faces that collpase to degenerates need to later be removed.
     mergeFaces() {
         const faceCount = this.positions.length / 9;
         let facesMerged = 0;
-        for (let faceIndex = 0; faceIndex < faceCount; faceIndex++) {
-            for (let edgeIndex = 0; edgeIndex < 3; edgeIndex++) {
-                if (!Number.isInteger(this.reverseIslands[faceIndex])) {
-                    // This face is already a degenerate from previous
-                    // merge operations but not yet deleted from
-                    // this.positions .  Stop processing it.
-                    // Eventually it will be removed from
-                    // this.positions.
-                    break;
-                }
-                let startPosition = this.positionFromFaceEdge(faceIndex, edgeIndex);
-                let currentPosition = startPosition;
-                let nextPosition = this.nextPositionInFace(currentPosition);
-                if (this.keyForTrio(startPosition) == this.keyForTrio(nextPosition)) {
-                    this.debugLog("no need");
-                    this.debugLog(this.keyForTrio(startPosition));
-                    // No need to continue because this already 0 length.
-                    continue;
-                }
-                let currentNormal = this.faceNormal(this.faceFromPosition(startPosition));
-                let normalsCount = 1;
-                let start = this.vector3FromPosition(startPosition, this.positions);
-                let next = this.vector3FromPosition(nextPosition, this.positions);
-                this.debugLog("merging");
-                this.debugLog(start);
-                this.debugLog(next);
-                do {
-                    this.debugLog("current normal is " + this.keyForVector3(currentNormal));
-                    currentPosition = this.getNeighborPosition(nextPosition);
-                    nextPosition = this.nextPositionInFace(currentPosition);
-                    let currentThird = this.nextPositionInFace(nextPosition);
-                    this.debugLog("current third is: ");
-                    this.debugLog(this.vector3FromPosition(currentThird, this.positions));
-                    let neighborNormal = this.faceNormal(this.faceFromPosition(currentPosition));
-                    if (neighborNormal.length() == 0) {
-                        // Ignore the normal of degenerate faces.
-                        continue;
-                    }
-                    if (this.keyForVector3(currentNormal, 3) == this.keyForVector3(neighborNormal, 3)) {
-                        this.debugLog("same normal");
-                        // Same normal so it's coplanar so we can ignore it.
-                        continue;
-                    }
-                    this.debugLog("new normal is: " + this.keyForVector3(neighborNormal));
-                    // The new face has a different normal.  This point might be on an edge.
-                    let current = this.vector3FromPosition(currentPosition, this.positions);
-                    // New normal.
-                    if (this.keyForVector3(new THREE.Line3(start, next).delta().normalize(), 3) ==
-                        this.keyForVector3(new THREE.Line3(next, current).delta().normalize(), 3) &&
-                        normalsCount < 2) {
-                        // This is the second side of the edge and the edge is a line.
-                        // New normal after a colinear edge so it's okay.
-                        currentNormal = neighborNormal;
-                        normalsCount++;
-                    } else {
-                        // This point touches 3 different planes so it can't be collapsed.
+        let previousFacesMerged = 0;
+        do {
+            previousFacesMerged = facesMerged;
+            for (let faceIndex = 0; faceIndex < faceCount; faceIndex++) {
+                for (let edgeIndex = 0; edgeIndex < 3; edgeIndex++) {
+                    if (!Number.isInteger(this.reverseIslands[faceIndex])) {
+                        // This face is already a degenerate from previous
+                        // merge operations but not yet deleted from
+                        // this.positions .  Stop processing it.
+                        // Eventually it will be removed from
+                        // this.positions.
                         break;
                     }
-                } while (currentPosition != startPosition);
-                if (currentPosition == startPosition) {
-                    this.debugLog("collapse " + faceIndex);
-                    this.debugLog(start);
-                    this.debugLog(next);
-                    // We didn't break so this triangle should be collapsable.
-                    facesMerged++;
-                    let faces = [];
+                    let startPosition = this.positionFromFaceEdge(faceIndex, edgeIndex);
+                    let currentPosition = startPosition;
+                    let start = this.vector3FromPosition(startPosition, this.positions);
+                    // Test if moving the point would affect any face normals.
                     do {
+                        currentPosition = this.getNeighborPosition(this.nextPositionInFace(currentPosition));
                         let nextPosition = this.nextPositionInFace(currentPosition);
-                        this.setPointsInArray([start], this.positions, nextPosition);
-                        faces.push(this.faceFromPosition(currentPosition));
-                        currentPosition = this.getNeighborPosition(nextPosition);
+                        let thirdPosition = this.nextPositionInFace(nextPosition);
+                        let neighborVertices = this.vector3sFromPositions([currentPosition,
+                                                                           nextPosition,
+                                                                           thirdPosition],
+                                                                          this.positions);
+                        let neighborNormal = new THREE.Triangle(...neighborVertices).normal();
+                        // After moving the vertex, this will be the new normal.
+                        let newNeighborNormal = new THREE.Triangle(neighborVertices[0],
+                                                                   start,
+                                                                   neighborVertices[2]).normal();
+                        if (newNeighborNormal.length() != 0 &&
+                            this.keyForVector3(neighborNormal, 3) !=
+                            this.keyForVector3(newNeighborNormal, 3)) {
+                            break;
+                        }
                     } while (currentPosition != startPosition);
-                    this.removeDegenerates(faces);
+                    if (currentPosition == startPosition) {
+                        // We didn't break so this triangle should be collapsable.
+                        facesMerged++;
+                        let faces = [];
+                        do {
+                            let nextPosition = this.nextPositionInFace(currentPosition);
+                            this.setPointsInArray([start], this.positions, nextPosition);
+                            faces.push(this.faceFromPosition(currentPosition));
+                            currentPosition = this.getNeighborPosition(nextPosition);
+                        } while (currentPosition != startPosition);
+                        this.removeDegenerates(faces);
+                    }
                 }
             }
-        }
-        this.deleteDegenerates();
+            this.deleteDegenerates();
+        } while (facesMerged != previousFacesMerged);
         return facesMerged;
     }
 
@@ -755,18 +730,9 @@ class ConnectedBufferGeometry {
         let degeneratesRemoved = 0;
         do {
             previousTotalDegeneratesRemoved = totalDegeneratesRemoved;
-            do {
-                totalDegeneratesRemoved += degeneratesRemoved;
-                degeneratesRemoved = this.removeDegenerates0Angle(faces);
-            } while (degeneratesRemoved);
-            do {
-                totalDegeneratesRemoved += degeneratesRemoved;
-                degeneratesRemoved = this.removeDegeneratesDoubleConnected(faces);
-            } while (degeneratesRemoved);
-            do {
-                totalDegeneratesRemoved += degeneratesRemoved;
-                degeneratesRemoved = this.removeDegenerates180Angle(faces);
-            } while (degeneratesRemoved);
+            totalDegeneratesRemoved += this.removeDegenerates0Angle(faces);
+            //totalDegeneratesRemoved += this.removeDegeneratesDoubleConnected(faces);
+            totalDegeneratesRemoved += this.removeDegenerates180Angle(faces);
         } while(previousTotalDegeneratesRemoved != totalDegeneratesRemoved);
         return totalDegeneratesRemoved;
     }
@@ -780,8 +746,7 @@ class ConnectedBufferGeometry {
                 continue;
             }
             // Find if there are two identical vertices.
-            let edgeIndex = 0;
-            for (; edgeIndex < 3; edgeIndex++) {
+            for (let edgeIndex = 0; edgeIndex < 3; edgeIndex++) {
                 let position = this.positionFromFaceEdge(faceIndex, edgeIndex);
                 let nextPosition = this.nextPositionInFace(position);
                 if (this.keyForTrio(position) == this.keyForTrio(nextPosition)) {
@@ -813,8 +778,7 @@ class ConnectedBufferGeometry {
                 continue;
             }
             // Find if there is a face that is connected exactly twice.
-            let edgeIndex = 0;
-            for (; edgeIndex < 3; edgeIndex++) {
+            for (let edgeIndex = 0; edgeIndex < 3; edgeIndex++) {
                 let position = this.positionFromFaceEdge(faceIndex, edgeIndex);
                 let nextPosition = this.nextPositionInFace(position);
                 let previousPosition = this.previousPositionInFace(position);

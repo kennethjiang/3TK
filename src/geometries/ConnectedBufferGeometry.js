@@ -712,7 +712,7 @@ class ConnectedBufferGeometry {
             for (let edgeIndex = 0; edgeIndex < 3; edgeIndex++) {
                 let position = this.positionFromFaceEdge(faceIndex, edgeIndex);
                 let nextPosition = this.nextPositionInFace(position);
-                if (this.keyForTrio(position) == this.keyForTrio(nextPosition)) {
+                if (this.equalTrios(position, nextPosition)) {
                     // Found a degenerate.
                     degeneratesRemoved++;
                     let edge1 = nextPosition;

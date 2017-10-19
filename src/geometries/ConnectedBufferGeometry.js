@@ -731,7 +731,6 @@ class ConnectedBufferGeometry {
         do {
             previousTotalDegeneratesRemoved = totalDegeneratesRemoved;
             totalDegeneratesRemoved += this.removeDegenerates0Angle(faces);
-            //totalDegeneratesRemoved += this.removeDegeneratesDoubleConnected(faces);
             totalDegeneratesRemoved += this.removeDegenerates180Angle(faces);
         } while(previousTotalDegeneratesRemoved != totalDegeneratesRemoved);
         return totalDegeneratesRemoved;
@@ -762,43 +761,6 @@ class ConnectedBufferGeometry {
                         this.neighbors[this.neighbors[edge2/3]] = this.neighbors[edge1/3];
                     }
                     this.reverseIslands[faceIndex] = null;
-                }
-            }
-        }
-        return degeneratesRemoved;
-    }
-
-    // Remove degenerates where two faces share more than one edge but
-    // not all 3 edges.
-    removeDegeneratesDoubleConnected(faces) {
-        let degeneratesRemoved = 0;
-        for (let faceIndex of faces) {
-            if (this.reverseIslands[faceIndex] === null) {
-                // Already going to be removed.
-                continue;
-            }
-            // Find if there is a face that is connected exactly twice.
-            for (let edgeIndex = 0; edgeIndex < 3; edgeIndex++) {
-                let position = this.positionFromFaceEdge(faceIndex, edgeIndex);
-                let nextPosition = this.nextPositionInFace(position);
-                let previousPosition = this.previousPositionInFace(position);
-                if (this.faceFromPosition(this.getNeighborPosition(position)) ==
-                    this.faceFromPosition(this.getNeighborPosition(nextPosition)) &&
-                    this.faceFromPosition(this.getNeighborPosition(position)) !=
-                    this.faceFromPosition(this.getNeighborPosition(previousPosition))) {
-                    // Found a degenerate.
-                    degeneratesRemoved++;
-                    let otherFaceIndex = this.faceFromPosition(this.getNeighborPosition(position));
-                    let edge1 = this.nextPositionInFace(nextPosition);
-                    let edge2 = this.nextPositionInFace(this.getNeighborPosition(position));
-                    // Connect their neighbors.
-                    if (Number.isInteger(this.neighbors[edge1/3]) &&
-                        Number.isInteger(this.neighbors[edge2/3])) {
-                        this.neighbors[this.neighbors[edge1/3]] = this.neighbors[edge2/3];
-                        this.neighbors[this.neighbors[edge2/3]] = this.neighbors[edge1/3];
-                    }
-                    this.reverseIslands[faceIndex] = null;
-                    this.reverseIslands[otherFaceIndex] = null;
                 }
             }
         }

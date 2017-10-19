@@ -8,9 +8,6 @@ class ConnectedBufferGeometry {
         // An array of numbers.  Every triple represents a point.
         // Every 3 points is a face.
         this.positions = [];
-        // An array of numbers.  Every triple represents an RGB for a
-        // point corresponding to the point in positions.
-        this.colors = [];
         // neighbors has length the same as faces*3.  Each element is
         // the position of the neighboring faceEdge.
         this.neighbors = [];
@@ -24,9 +21,6 @@ class ConnectedBufferGeometry {
     clone() {
         let newCBG = new ConnectedBufferGeometry();
         newCBG.positions = this.positions.slice(0);
-        if (this.colors) {
-            newCBG.colors = this.colors.slice(0);
-        }
         newCBG.neighbors = this.neighbors.slice(0);
         newCBG.reverseIslands = this.reverseIslands.slice(0);
         return newCBG;
@@ -34,7 +28,6 @@ class ConnectedBufferGeometry {
 
     fromBufferGeometry(bufferGeometry) {
         this.positions = Array.from(bufferGeometry.getAttribute('position').array);
-        this.colors = bufferGeometry.getAttribute('color') && Array.from(bufferGeometry.getAttribute('color').array);
         if (!this.findNeighbors()) {
             return null;
         }
@@ -95,10 +88,6 @@ class ConnectedBufferGeometry {
     // Given index in originalPositions, return a Vector3 of that point.
     vector3FromPosition(position, positions) {
         return new THREE.Vector3().fromArray(positions, position);
-    }
-    // Given index in originalPositions, return a Vector3 of that point.
-    colorFromPosition(position, colors) {
-        return new THREE.Color().fromArray(this.colors, position);
     }
 
     // Gets the position of an adjacent vertex in the face.  If direction is +3, go forward.  If -3, go to previous.
@@ -390,15 +379,11 @@ class ConnectedBufferGeometry {
 
             let vertices = [];
             let normals = [];
-            let colors = [];
 
             for (let faceIndex of island) {
                 let posIndex = rounded.positionFromFace(faceIndex);
                 for (var i = 0; i < 9; i++) {
                     vertices.push(rounded.positions[posIndex + i]);
-                    if (rounded.colors) {
-                        colors.push(rounded.colors[posIndex + i]);
-                    }
                 }
                 let normal = rounded.faceNormal(faceIndex);
                 for (let i = 0; i < 3; i++) {
@@ -408,9 +393,6 @@ class ConnectedBufferGeometry {
 
             newGeometry.addAttribute('position', new THREE.BufferAttribute(new Float32Array(vertices), 3));
             newGeometry.addAttribute('normal', new THREE.BufferAttribute(new Float32Array(normals), 3));
-            if (rounded.colors) {
-                newGeometry.addAttribute('color', new THREE.BufferAttribute(new Float32Array(colors), 3));
-            }
             geometries.push(newGeometry);
         }
 
@@ -431,9 +413,6 @@ class ConnectedBufferGeometry {
         }
         newGeometry.addAttribute('position', new THREE.BufferAttribute(new Float32Array(roundedCBG.positions), 3));
         newGeometry.addAttribute('normal', new THREE.BufferAttribute(new Float32Array(normals), 3));
-        if (roundedCBG.colors) {
-            newGeometry.addAttribute('color', new THREE.BufferAttribute(new Float32Array(roundedCBG.colors), 3));
-        }
         return newGeometry;
     }
 
@@ -464,11 +443,6 @@ class ConnectedBufferGeometry {
         return positionList.map(p => this.vector3FromPosition(p, positions));
     }
 
-    // Gets all Colors for the positionList
-    colorsFromPositions(positionList, colors) {
-        return positionList.map(p => this.colorFromPosition(p, colors));
-    }
-
     getNeighborPosition(position) {
         return this.neighbors[position/3]*3;
     }
@@ -479,15 +453,6 @@ class ConnectedBufferGeometry {
             array[offset++] = p.x;
             array[offset++] = p.y;
             array[offset++] = p.z;
-        }
-    }
-
-    // copy the x,y,z of the points into the array at the offset
-    setColorsInArray(colors, array, offset) {
-        for (let c of colors) {
-            array[offset++] = c.r;
-            array[offset++] = c.g;
-            array[offset++] = c.b;
         }
     }
 
@@ -576,25 +541,6 @@ class ConnectedBufferGeometry {
                 }
             }
 
-            if (this.colors) {
-                for (let i = 0; i < 2; i++) {
-                    // The new face colors must be added.
-                    let alpha = vertices[i][0].distanceTo(intersectionPoint) / vertices[i][0].distanceTo(vertices[i][1]);
-                    let colors = [];
-                    colors = this.colorsFromPositions(positions[i], this.colors);
-                    let intersectionColor = colors[0].clone().lerp(colors[1], alpha);
-                    // The original face's colors must be adjusted.
-                    this.setColorsInArray([intersectionColor], this.colors, positions[i][vertexToMove[i]]);
-                    // New face colors need to be added.
-                    if (vertexToMove[i] == 0) {
-                        this.setColorsInArray([colors[2], colors[0], intersectionColor],
-                                              this.colors, this.colors.length);
-                    } else {
-                        this.setColorsInArray([intersectionColor, colors[1], colors[2]],
-                                              this.colors, this.colors.length);
-                    }
-                }
-            }
             // Add to this.neighbors
             let newNeighborIndex = this.neighbors.length;
             if (vertexToMove[0] == 1 && vertexToMove[1] == 1) {
@@ -842,7 +788,6 @@ class ConnectedBufferGeometry {
 
         let degeneratesRemoved = 0;
         let newPositions = [];
-        let newColors = [];
         let newFaceIndex = [];
         let newReverseIslands = [];
         for (let faceIndex = 0; faceIndex < faceCount; faceIndex++) {
@@ -852,9 +797,6 @@ class ConnectedBufferGeometry {
                 continue;
             }
             newPositions.push(...this.positions.slice(faceIndex*9, (faceIndex+1)*9));
-            if (this.colors) {
-                newColors.push(...this.colors.slice(faceIndex*9, (faceIndex+1)*9));
-            }
             newReverseIslands.push(this.reverseIslands[faceIndex]);
             newFaceIndex[faceIndex] = faceIndex - degeneratesRemoved;
         }
@@ -875,9 +817,6 @@ class ConnectedBufferGeometry {
         }
 
         this.positions = newPositions;
-        if (this.colors) {
-            this.colors = newColors;
-        }
         this.neighbors = newNeighbors;
         this.reverseIslands = newReverseIslands;
         return degeneratesRemoved;

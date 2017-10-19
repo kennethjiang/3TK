@@ -112,9 +112,15 @@ class ConnectedBufferGeometry {
     isFaceDegenerate(faceIndex) {
         let facePoints = new Set();
         for (let edgeIndex = 0; edgeIndex < 3; edgeIndex++) {
-            facePoints.add(this.keyForTrio(this.positionFromFaceEdge(faceIndex, edgeIndex)));
+            let currentPos = this.positionFromFaceEdge(faceIndex, edgeIndex);
+            let nextPos = this.nextPositionInFace(currentPos);
+            if (this.positions[currentPos  ] == this.positions[nextPos  ] &&
+                this.positions[currentPos+1] == this.positions[nextPos+1] &&
+                this.positions[currentPos+2] == this.positions[nextPos+2]) {
+                return true;
+            }
         }
-        return facePoints.size != 3;
+        return false;
     }
 
     // Recalculate the neighbors.

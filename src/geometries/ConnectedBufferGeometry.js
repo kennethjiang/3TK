@@ -533,8 +533,8 @@ class ConnectedBufferGeometry {
                 // so that the new face created won't need further
                 // splitting?
                 if (secondIntersectionPoint === undefined ||
-                    this.keyForVector3(secondIntersectionPoint) == this.keyForVector3(vertices[i][0]) ||
-                    this.keyForVector3(secondIntersectionPoint) == this.keyForVector3(vertices[i][2])) {
+                    secondIntersectionPoint.equals(vertices[i][0]) ||
+                    secondIntersectionPoint.equals(vertices[i][2])) {
                     // No intersection with plane from position 0 to
                     // position 2, so let that be part of the new face.
                     vertexToMove[i] = 0;

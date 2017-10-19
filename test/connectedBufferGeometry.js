@@ -110,8 +110,9 @@ describe("ConnectedBufferGeometry", function() {
             let connectedBufferGeometry = new ConnectedBufferGeometry().fromBufferGeometry(geometry);
             expect(connectedBufferGeometry).to.be.null;
         });
-*/
-        it("lungo just merge", function () {
+
+        it("dino jump just merge", function () {
+            this.timeout(30000);
             let stl = fs.readFileSync("test/DINOSAUR_JUMP.stl", {encoding: "binary"});
             let geometry = new STLLoader().parse(stl);
             let connectedBufferGeometry = new ConnectedBufferGeometry().fromBufferGeometry(geometry);

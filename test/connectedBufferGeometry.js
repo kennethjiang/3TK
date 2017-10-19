@@ -5,7 +5,7 @@ import * as THREE from 'three';
 
 describe("ConnectedBufferGeometry", function() {
     describe("isolatedBufferGeometries", function() {
-        let testFile = function (filename, expectedGeometriesCount, writeShapes = true) {
+        let testFile = function (filename, expectedGeometriesCount, writeShapes = false) {
             // Test that the number of shapes is as expected.
             let stl = fs.readFileSync("test/" + filename + ".stl", {encoding: "binary"});
             let geometry = new STLLoader().parse(stl);
@@ -100,7 +100,7 @@ describe("ConnectedBufferGeometry", function() {
         });
 
         it("Big object: Dinosaur Jump", function() {
-            this.timeout(50000);
+            this.timeout(30000);
             testFile("DINOSAUR_JUMP", 1);
         });
 
@@ -110,17 +110,19 @@ describe("ConnectedBufferGeometry", function() {
             let connectedBufferGeometry = new ConnectedBufferGeometry().fromBufferGeometry(geometry);
             expect(connectedBufferGeometry).to.be.null;
         });
-
-/*        it("lungo just merge", function () {
-            let stl = fs.readFileSync("test/lungo.stl", {encoding: "binary"});
+*/
+        it("lungo just merge", function () {
+            let stl = fs.readFileSync("test/DINOSAUR_JUMP.stl", {encoding: "binary"});
             let geometry = new STLLoader().parse(stl);
             let connectedBufferGeometry = new ConnectedBufferGeometry().fromBufferGeometry(geometry);
-            connectedBufferGeometry.mergeFaces();
+            console.log("faces merged: " + connectedBufferGeometry.mergeFaces(function (v0, v1) {
+                return v0.angleTo(v1) < Math.PI/180*20;
+            }));
             let mesh = new THREE.Mesh(connectedBufferGeometry.bufferGeometry());
             let obj = new THREE.Object3D();
             obj.add(mesh);
             fs.writeFileSync("lungo_merged.stl", new Buffer(new STLExporter().parse(obj)), 'ascii');
         });
-*/
+
     });
 });

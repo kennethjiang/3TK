@@ -626,11 +626,14 @@ class ConnectedBufferGeometry {
     // become degenerate.  The rest should have their normals
     // unchanged.  If that's true, the collapse is valid.
     //
-    // Normal unchanged means that the the normal before and after are
-    // the same within a small tollerance, like 0.0001.
+    // Normal unchanged means that the the normal before and after
+    // rounding are the same.  The default is not to round.  If
+    // rounding is wanted, supply a function that compares rounded
+    // Vector3s.  The arguments must not be modified.  Clone the
+    // Vector3s if needed.
     //
     // The faces that collpase to degenerates need to later be removed.
-    mergeFaces() {
+    mergeFaces(equalNormals = function(x, y) { return x.equals(y); }) {
         const faceCount = this.positions.length / 9;
         let facesMerged = 0;
         let previousFacesMerged = 0;
@@ -664,8 +667,7 @@ class ConnectedBufferGeometry {
                                                                    start,
                                                                    neighborVertices[2]).normal();
                         if (newNeighborNormal.length() != 0 &&
-                            this.keyForVector3(neighborNormal, 3) !=
-                            this.keyForVector3(newNeighborNormal, 3)) {
+                            !equalNormals(neighborNormal, newNeighborNormal)) {
                             break;
                         }
                     } while (currentPosition != startPosition);

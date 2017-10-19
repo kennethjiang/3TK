@@ -107,6 +107,14 @@ class ConnectedBufferGeometry {
         return this.otherPositionInFace(posIndex, -3);
     }
 
+    // Returns true if the x,y,z coordinates at pos1 match those at
+    // pos2.
+    equalTrios(pos1, pos2) {
+        return (this.positions[pos1  ] == this.positions[pos2  ] &&
+                this.positions[pos1+1] == this.positions[pos2+1] &&
+                this.positions[pos1+2] == this.positions[pos2+2]);
+    }
+
     // Returns true if the faceIndex (0 to faceCount-1) has two
     // identical points in it.
     isFaceDegenerate(faceIndex) {
@@ -192,12 +200,15 @@ class ConnectedBufferGeometry {
             for (let edgeIndex = 0; edgeIndex < 3; edgeIndex++) {
                 let posIndex = this.positionFromFaceEdge(faceIndex, edgeIndex);
                 let key = this.keyForTrio(posIndex);
-                let keyNext = this.keyForTrio(this.nextPositionInFace(posIndex));
+                let nextPosition = this.nextPositionInFace(posIndex);
                 for (let newPosIndex of vertexPosMap.get(key)) {
+                    if (!this.equalTrios(newPosIndex, posIndex)) {
+                        continue;
+                    }
                     // A face is only neighboring if the edges are in
                     // common and point in opposite directions.
-                    let newKeyPrevious = this.keyForTrio(this.previousPositionInFace(newPosIndex));
-                    if (keyNext != newKeyPrevious) {
+                    let newPreviousPosition = this.previousPositionInFace(newPosIndex);
+                    if (!this.equalTrios(nextPosition, newPreviousPosition)) {
                         continue;
                     }
                     // This neighboring face is connected.
@@ -205,8 +216,9 @@ class ConnectedBufferGeometry {
                     if (faces[this.faceFromPosition(newPosIndex)].degenerate) {
                         continue;
                     }
-                    // We're able to connect to the edge newKey and newKeyPrevious, which is the newKeyPrevious edge.
-                    faces[faceIndex].possibleNeighbors[edgeIndex].set(this.previousPositionInFace(newPosIndex), null);
+                    // We're able to connect to the edge key and
+                    // previous, which is the previous edge.
+                    faces[faceIndex].possibleNeighbors[edgeIndex].set(newPreviousPosition, null);
                 }
                 unconnectedEdges.add(posIndex);
             }

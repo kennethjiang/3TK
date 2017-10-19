@@ -122,7 +122,7 @@ describe("ConnectedBufferGeometry", function() {
             let mesh = new THREE.Mesh(connectedBufferGeometry.bufferGeometry());
             let obj = new THREE.Object3D();
             obj.add(mesh);
-            fs.writeFileSync("lungo_merged.stl", new Buffer(new STLExporter().parse(obj)), 'ascii');
+            fs.writeFileSync("DINOSAUR_JUMP_merged.stl", new Buffer(new STLExporter().parse(obj)), 'ascii');
         });
 
     });

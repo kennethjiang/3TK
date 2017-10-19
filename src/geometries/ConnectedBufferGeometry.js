@@ -521,8 +521,8 @@ class ConnectedBufferGeometry {
             let edge = new THREE.Line3(vertices[0][0], vertices[1][0]);
             let intersectionPoint = plane.intersectLine(edge);
             if (intersectionPoint === undefined ||
-                this.keyForVector3(intersectionPoint) == this.keyForVector3(vertices[0][0]) ||
-                this.keyForVector3(intersectionPoint) == this.keyForVector3(vertices[0][1])) {
+                intersectionPoint.equals(vertices[0][0]) ||
+                intersectionPoint.equals(vertices[0][1])) {
                 return 0;
             }
 

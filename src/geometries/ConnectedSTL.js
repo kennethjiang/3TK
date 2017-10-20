@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 
-// A ConnectedBufferGeometry is similar to a BufferGeometry with
+// A ConnectedSTL is similar to a BufferGeometry with
 // additional neighbor information.  The neighbor information
 // maintains which face is connected to which face by which edge.
-class ConnectedBufferGeometry {
+class ConnectedSTL {
     constructor() {
         // An array of numbers.  Every triple represents a point.
         // Every 3 points is a face.
@@ -19,11 +19,11 @@ class ConnectedBufferGeometry {
     }
 
     clone() {
-        let newCBG = new ConnectedBufferGeometry();
-        newCBG.positions = this.positions.slice(0);
-        newCBG.neighbors = this.neighbors.slice(0);
-        newCBG.reverseIslands = this.reverseIslands.slice(0);
-        return newCBG;
+        let newConnectedSTL = new ConnectedSTL();
+        newConnectedSTL.positions = this.positions.slice(0);
+        newConnectedSTL.neighbors = this.neighbors.slice(0);
+        newConnectedSTL.reverseIslands = this.reverseIslands.slice(0);
+        return newConnectedSTL;
     }
 
     fromBufferGeometry(bufferGeometry) {
@@ -420,24 +420,35 @@ class ConnectedBufferGeometry {
     bufferGeometry() {
         let newGeometry = new THREE.BufferGeometry();
         let normals = [];
-        let roundedCBG = this.clone();
-        roundedCBG.roundVerticesToFloat();
-        for (let faceIndex = 0; faceIndex < roundedCBG.positions.length / 9; faceIndex++) {
-            let posIndex = roundedCBG.positionFromFace(faceIndex);
-            let normal = roundedCBG.faceNormal(faceIndex);
+        let rounded = this.clone();
+        rounded.roundVerticesToFloat();
+        for (let faceIndex = 0; faceIndex < rounded.positions.length / 9; faceIndex++) {
+            let posIndex = rounded.positionFromFace(faceIndex);
+            let normal = rounded.faceNormal(faceIndex);
             for (let i = 0; i < 3; i++) {
                 normals.push(normal.x, normal.y, normal.z);
             }
         }
-        newGeometry.addAttribute('position', new THREE.BufferAttribute(new Float32Array(roundedCBG.positions), 3));
+        newGeometry.addAttribute('position', new THREE.BufferAttribute(new Float32Array(rounded.positions), 3));
         newGeometry.addAttribute('normal', new THREE.BufferAttribute(new Float32Array(normals), 3));
         return newGeometry;
     }
 
     // round vertices to the nearest Float32 value.  This eliminates
     // degenerates when saving the file.
-    roundVerticesToFloat() {
+    roundToFloat32() {
         this.positions = Array.from(new Float32Array(this.positions));
+        this.mergeFaces(function (vertex0, vertex1) {
+            let coordinates = Array.from(new Float32Array(vertex0.x,
+                                                          vertex0.y,
+                                                          vertex0.z,
+                                                          vertex1.x,
+                                                          vertex1.y,
+                                                          vertex1.z));
+            return (coordinates[0] == coordinates[3] &&
+                    coordinates[1] == coordinates[4] &&
+                    coordinates[2] == coordinates[5]);
+        });
         this.removeDegenerates(Array.from(new Array(this.positions.length/9).keys()));
         this.deleteDegenerates();
         let normal0Count = 0;
@@ -843,4 +854,4 @@ class ConnectedBufferGeometry {
     }
 }
 
-export { ConnectedBufferGeometry };
+export { ConnectedSTL };

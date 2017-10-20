@@ -1,15 +1,15 @@
-import { BufferGeometryAnalyzer, ConnectedBufferGeometry, STLLoader, STLExporter, STLBinaryExporter } from '..';
+import { BufferGeometryAnalyzer, ConnectedSTL, STLLoader, STLExporter, STLBinaryExporter } from '..';
 import { expect } from 'chai';
 import fs from 'fs';
 import * as THREE from 'three';
 
-describe("ConnectedBufferGeometry", function() {
+describe("ConnectedSTL", function() {
     describe("isolatedBufferGeometries", function() {
         let testFile = function (filename, expectedGeometriesCount, writeShapes = false) {
             // Test that the number of shapes is as expected.
             let stl = fs.readFileSync("test/" + filename + ".stl", {encoding: "binary"});
             let geometry = new STLLoader().parse(stl);
-            let connectedBufferGeometry = new ConnectedBufferGeometry().fromBufferGeometry(geometry);
+            let connectedBufferGeometry = new ConnectedSTL().fromBufferGeometry(geometry);
             let newGeometries = connectedBufferGeometry.isolatedBufferGeometries(geometry);
             expect(newGeometries.length).to.equal(expectedGeometriesCount);
             if (writeShapes) {
@@ -107,7 +107,7 @@ describe("ConnectedBufferGeometry", function() {
         it("Non-manifold object", function () {
             let stl = fs.readFileSync("test/tetrahedron_non_manifold.stl", {encoding: "binary"});
             let geometry = new STLLoader().parse(stl);
-            let connectedBufferGeometry = new ConnectedBufferGeometry().fromBufferGeometry(geometry);
+            let connectedBufferGeometry = new ConnectedSTL().fromBufferGeometry(geometry);
             expect(connectedBufferGeometry).to.be.null;
         });
 
@@ -115,7 +115,7 @@ describe("ConnectedBufferGeometry", function() {
             this.timeout(30000);
             let stl = fs.readFileSync("test/DINOSAUR_JUMP.stl", {encoding: "binary"});
             let geometry = new STLLoader().parse(stl);
-            let connectedBufferGeometry = new ConnectedBufferGeometry().fromBufferGeometry(geometry);
+            let connectedBufferGeometry = new ConnectedSTL().fromBufferGeometry(geometry);
             console.log("faces merged: " + connectedBufferGeometry.mergeFaces(function (v0, v1) {
                 return v0.angleTo(v1) < Math.PI/180*20;
             }));

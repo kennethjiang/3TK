@@ -789,7 +789,6 @@ class ConnectedSTL {
                     this.neighbors[this.neighbors[positions[i][j]/3]] = positions[i][j]/3;
                 }
             }
-
             degeneratesRemoved++;
         }
         return degeneratesRemoved;
@@ -801,7 +800,7 @@ class ConnectedSTL {
 
         let degeneratesRemoved = 0;
         let newPositions = [];
-        let newFaceIndex = [];
+        let newFaceIndex = [];  // Map from where a face was to where it is after deletions.
         let newReverseIslands = [];
         for (let faceIndex = 0; faceIndex < faceCount; faceIndex++) {
             if (!Number.isInteger(this.reverseIslands[faceIndex])) {

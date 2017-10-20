@@ -100,7 +100,7 @@ describe("ConnectedSTL", function() {
         });
 
         it("Big object: Dinosaur Jump", function() {
-            this.timeout(30000);
+            this.timeout(40000);
             testFile("DINOSAUR_JUMP", 1);
         });
 

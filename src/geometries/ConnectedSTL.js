@@ -381,7 +381,7 @@ class ConnectedSTL {
         let geometries = [];
         let islands = new Map();
         let rounded = this.clone();
-        rounded.roundVerticesToFloat();
+        rounded.roundToFloat32();
         for (let face = 0; face < rounded.reverseIslands.length; face++) {
             let root = rounded.reverseIslands[face];
             if (!Number.isInteger(root)) {
@@ -421,7 +421,7 @@ class ConnectedSTL {
         let newGeometry = new THREE.BufferGeometry();
         let normals = [];
         let rounded = this.clone();
-        rounded.roundVerticesToFloat();
+        rounded.roundToFloat32();
         for (let faceIndex = 0; faceIndex < rounded.positions.length / 9; faceIndex++) {
             let posIndex = rounded.positionFromFace(faceIndex);
             let normal = rounded.faceNormal(faceIndex);
@@ -438,25 +438,20 @@ class ConnectedSTL {
     // degenerates when saving the file.
     roundToFloat32() {
         this.positions = Array.from(new Float32Array(this.positions));
+        this.removeDegenerates(Array.from(new Array(this.positions.length/9).keys()));
         this.mergeFaces(function (vertex0, vertex1) {
-            let coordinates = Array.from(new Float32Array(vertex0.x,
-                                                          vertex0.y,
-                                                          vertex0.z,
-                                                          vertex1.x,
-                                                          vertex1.y,
-                                                          vertex1.z));
+            let coordinates = Array.from(new Float32Array([vertex0.x,
+                                                           vertex0.y,
+                                                           vertex0.z,
+                                                           vertex1.x,
+                                                           vertex1.y,
+                                                           vertex1.z]));
             return (coordinates[0] == coordinates[3] &&
                     coordinates[1] == coordinates[4] &&
                     coordinates[2] == coordinates[5]);
         });
         this.removeDegenerates(Array.from(new Array(this.positions.length/9).keys()));
         this.deleteDegenerates();
-        let normal0Count = 0;
-        for (let f=0; f < this.positions.length/9; f++) {
-            if (this.faceNormal(f).length() == 0) {
-                normal0Count++;
-            }
-        }
     }
 
     // Returns all positions in the face, starting from the vertex specified.

@@ -32,6 +32,7 @@ class ConnectedSTL {
         if (!this.findNeighbors()) {
             return null;
         }
+        this.removeDegenerates(Array.from(new Array(this.positions.length/9).keys()));
         this.deleteDegenerates();
         return this;
     }
@@ -423,9 +424,9 @@ class ConnectedSTL {
     // round vertices to the nearest Float32 value.  This eliminates
     // degenerates when saving the file.
     roundToFloat32() {
+        // First round all vertices to floats.
         this.positions = Array.from(new Float32Array(this.positions));
-        this.removeDegenerates(Array.from(new Array(this.positions.length/9).keys()));
-        this.mergeFaces(function (vertex0, vertex1) {
+        let equalNormals = function (vertex0, vertex1) {
             let coordinates = Array.from(new Float32Array([vertex0.x,
                                                            vertex0.y,
                                                            vertex0.z,
@@ -435,8 +436,12 @@ class ConnectedSTL {
             return (coordinates[0] == coordinates[3] &&
                     coordinates[1] == coordinates[4] &&
                     coordinates[2] == coordinates[5]);
-        });
-        this.removeDegenerates(Array.from(new Array(this.positions.length/9).keys()));
+        };
+        // Remove all degenerate triangles where the normal is 0 when rounded to float.
+        this.removeDegenerates(Array.from(new Array(this.positions.length/9).keys()), equalNormals);
+        // Merge all faces using a normal rounded to float when comparing face normals.
+        this.mergeFaces(equalNormals);
+        // Remove all the triangles that aren't part of any shapes anymore.
         this.deleteDegenerates();
     }
 
@@ -606,6 +611,8 @@ class ConnectedSTL {
 
     // Merge faces where possible.
     //
+    // Assumes that the current shape has no degenerates.
+    //
     // Look for edges where one of the points could be moved to the
     // other point without affecting the shape.  To check this, we
     // look at the normals of all affected faces before and after the
@@ -655,7 +662,7 @@ class ConnectedSTL {
                                                                    neighborVertices[2]).normal();
                         if (newNeighborNormal.length() != 0 &&
                             !equalNormals(neighborNormal, newNeighborNormal)) {
-                            break;
+                            break;  // This face's normal has changed so we can't move it.
                         }
                     } while (currentPosition != startPosition);
                     if (currentPosition == startPosition) {
@@ -668,7 +675,7 @@ class ConnectedSTL {
                             faces.push(this.faceFromPosition(currentPosition));
                             currentPosition = this.getNeighborPosition(nextPosition);
                         } while (currentPosition != startPosition);
-                        this.removeDegenerates(faces);
+                        this.removeDegenerates(faces, equalNormals);
                     }
                 }
             }
@@ -677,14 +684,14 @@ class ConnectedSTL {
         return facesMerged;
     }
 
-    removeDegenerates(faces) {
+    removeDegenerates(faces, equalNormals = function(x, y) { return x.equals(y); }) {
         let previousTotalDegeneratesRemoved = 0;
         let totalDegeneratesRemoved = 0;
         let degeneratesRemoved = 0;
         do {
             previousTotalDegeneratesRemoved = totalDegeneratesRemoved;
             totalDegeneratesRemoved += this.removeDegenerates0Angle(faces);
-            totalDegeneratesRemoved += this.removeDegenerates180Angle(faces);
+            totalDegeneratesRemoved += this.removeDegenerates180Angle(faces, equalNormals);
         } while(previousTotalDegeneratesRemoved != totalDegeneratesRemoved);
         return totalDegeneratesRemoved;
     }
@@ -723,7 +730,7 @@ class ConnectedSTL {
     // Reconnect faces with a normal of 0 due to a 180 degree angle so
     // that the output will have only faces with normal non-zero.  We
     // check if the normal is 0 as a 32-bit float.
-    removeDegenerates180Angle(faces) {
+    removeDegenerates180Angle(faces, equalNormals = function(x, y) { return x.equals(y); }) {
         let degeneratesRemoved = 0;
         for (let faceIndex of faces) {
             if (this.reverseIslands[faceIndex] === null ||
@@ -737,9 +744,8 @@ class ConnectedSTL {
             positions[0] = this.positionsFromFace(faceIndex, 0);
             let vertices = [];
             vertices[0] = this.vector3sFromPositions(positions[0], this.positions);
-            let normal = new THREE.Triangle(...vertices[0]).normal().length();
-            let floatNormal = Array.from(new Float32Array([normal]))[0];
-            if (floatNormal != 0 ) {
+            let normal = new THREE.Triangle(...vertices[0]).normal();
+            if (!equalNormals(normal, new THREE.Vector3(0,0,0))) {
                 // Nothing to do.
                 continue;
             }

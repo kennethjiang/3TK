@@ -453,6 +453,7 @@ class ConnectedSTL {
         return positionList.map(p => this.vector3FromPosition(p));
     }
 
+    // Returns the neighbor edge position of a position.
     getNeighborPosition(position) {
         return this.neighbors[position/3]*3;
     }
@@ -479,127 +480,121 @@ class ConnectedSTL {
         // Maintain a list of positions that intersect the plane.
         // Each position is on the plane.
         let splitPositions = new Set();
-
-        /* Given the face and edge index, split that edge at the point
-           where it crosses the plane.
-
-           If the edge doesn't cross the plane, do nothing.
-
-           If the edge crosses the plane, split the face into two
-           faces.  One face is modified in place, the other is added
-           to the end of the faces array.  The faces that are added to
-           the end is the one that doesn't require more splitting.
-           The neighboring face is adjusted and a new neighbor is
-           made, too.  this.neighbors and this.islands are updated.
-        */
-        let splitFace = (faceIndex, edgeIndex, plane) => {
-            let positions = []; // 2D array, element 0 is for current face, element 1 for neighbor.
-            positions[0] = this.positionsFromFace(faceIndex, edgeIndex);
-            if (splitPositions.has(positions[0][0]) || splitPositions.has(positions[0][1])) {
-                // One of the end ponts is already split so there's no
-                // need to split here.  This saves us from creating
-                // degenerate triangles when the interseciton
-                // calculation isn't an exact value.
-                return 0;
-            }
-            positions[1] = [this.getNeighborPosition(positions[0][0])];
-            positions[1].push(this.nextPositionInFace(positions[1][0]),
-                              this.previousPositionInFace(positions[1][0]));
-            let vertices = []; // 2D array, element 0 is for current face, element 1 for neighbor.
-            for (let i = 0; i < 2; i++) {
-                vertices[i] = this.vector3sFromPositions(positions[i], this.positions);
-            }
-
-            let edge = new THREE.Line3(vertices[0][0], vertices[1][0]);
-            let intersectionPoint = plane.intersectLine(edge);
-            if (intersectionPoint === undefined ||
-                intersectionPoint.equals(vertices[0][0]) ||
-                intersectionPoint.equals(vertices[0][1])) {
-                return 0;
-            }
-
-            let vertexToMove = [];
-            for (let i = 0; i < 2; i++) {
-                let secondIntersectionPoint = plane.intersectLine(new THREE.Line3(vertices[i][0], vertices[i][2]));
-                // Which vertex needs to be moved to the intersection
-                // so that the new face created won't need further
-                // splitting?
-                if (secondIntersectionPoint === undefined ||
-                    secondIntersectionPoint.equals(vertices[i][0]) ||
-                    secondIntersectionPoint.equals(vertices[i][2])) {
-                    // No intersection with plane from position 0 to
-                    // position 2, so let that be part of the new face.
-                    vertexToMove[i] = 0;
-                } else {
-                    vertexToMove[i] = 1;
-                }
-            }
-
-            for (let i = 0; i < 2; i++) {
-                // The intersectionPoint replaces the vertex from above.
-                this.setPointsInArray([intersectionPoint], this.positions, positions[i][vertexToMove[i]]);
-                splitPositions.add(positions[i][vertexToMove[i]]);
-                // A new face needs to be added for the other side of the triangle.
-                if (vertexToMove[i] == 0) {
-                    this.setPointsInArray([vertices[i][2], vertices[i][0], intersectionPoint],
-                                          this.positions, this.positions.length);
-                    splitPositions.add(this.positions.length-3);
-                } else {
-                    this.setPointsInArray([intersectionPoint, vertices[i][1], vertices[i][2]],
-                                          this.positions, this.positions.length);
-                    splitPositions.add(this.positions.length-9);
-                }
-            }
-
-            // Add to this.neighbors
-            let newNeighborIndex = this.neighbors.length;
-            if (vertexToMove[0] == 1 && vertexToMove[1] == 1) {
-                this.neighbors.push(positions[1][0]/3,
-                                    this.neighbors[positions[0][1]/3],
-                                    positions[0][1]/3);
-                this.neighbors.push(positions[0][0]/3,
-                                    this.neighbors[positions[1][1]/3],
-                                    positions[1][1]/3);
-            } else if (vertexToMove[0] == 0 && vertexToMove[1] == 0) {
-                this.neighbors.push(this.neighbors[positions[0][2]/3],
-                                    positions[1][0]/3,
-                                    positions[0][2]/3);
-                this.neighbors.push(this.neighbors[positions[1][2]/3],
-                                    positions[0][0]/3,
-                                    positions[1][2]/3);
-            } else if (vertexToMove[0] == 1 && vertexToMove[1] == 0) {
-                this.neighbors.push(newNeighborIndex + 4,
-                                    this.neighbors[positions[0][1]/3],
-                                    positions[0][1]/3);
-                this.neighbors.push(this.neighbors[positions[1][2]/3],
-                                    newNeighborIndex,
-                                    positions[1][2]/3);
-            } else if (vertexToMove[0] == 0 && vertexToMove[1] == 1) {
-                this.neighbors.push(this.neighbors[positions[0][2]/3],
-                                    newNeighborIndex + 3,
-                                    positions[0][2]/3);
-                this.neighbors.push(newNeighborIndex + 1,
-                                    this.neighbors[positions[1][1]/3],
-                                    positions[1][1]/3);
-            }
-
-            // Make the above assignments symmetric.
-            for (let i = newNeighborIndex; i < newNeighborIndex+6; i++) {
-                this.neighbors[this.neighbors[i]] = i;
-            }
-            // Update the reverseIslands.
-            this.reverseIslands[this.faceFromPosition(this.positions.length-18)] =
-                this.reverseIslands[this.faceFromPosition(positions[0][0])];
-            this.reverseIslands[this.faceFromPosition(this.positions.length- 9)] =
-                this.reverseIslands[this.faceFromPosition(positions[1][0])];
-            return 1;
-        }
         let splitsMade = 0;
 
         const faceCount = this.positions.length/9;
-        for (let f = 0; f < faceCount; f++) {
-            for (let e = 0; e < 3; e++) {
-                splitsMade += splitFace(f, e, plane);
+        for (let faceIndex = 0; faceIndex < faceCount; faceIndex++) {
+            for (let edgeIndex= 0; edgeIndex < 3; edgeIndex++) {
+                /* If the edge doesn't cross the plane, do nothing.
+
+                   If the edge crosses the plane, split the face into
+                   two faces.  One face is modified in place, the
+                   other is added to the end of the faces array.  The
+                   faces that are added to the end are the ones that
+                   don't require more splitting.  The neighboring face
+                   is adjusted and a new neighbor is made, too.
+                   this.neighbors and this.islands are updated.
+                */
+                let positions = []; // 2D array, element 0 is for current face, element 1 for neighbor.
+                positions[0] = this.positionsFromFace(faceIndex, edgeIndex);
+                if (splitPositions.has(positions[0][0]) || splitPositions.has(positions[0][1])) {
+                    // One of the end ponts is already split so there's no
+                    // need to split here.  This saves us from creating
+                    // degenerate triangles when the interseciton
+                    // calculation isn't an exact value.
+                    continue;
+                }
+                positions[1] = [this.getNeighborPosition(positions[0][0])];
+                positions[1].push(this.nextPositionInFace(positions[1][0]),
+                                  this.previousPositionInFace(positions[1][0]));
+                let vertices = []; // 2D array, element 0 is for current face, element 1 for neighbor.
+                for (let i = 0; i < 2; i++) {
+                    vertices[i] = this.vector3sFromPositions(positions[i], this.positions);
+                }
+
+                let edge = new THREE.Line3(vertices[0][0], vertices[1][0]);
+                let intersectionPoint = plane.intersectLine(edge);
+                if (intersectionPoint === undefined ||
+                    intersectionPoint.equals(vertices[0][0]) ||
+                    intersectionPoint.equals(vertices[0][1])) {
+                    continue;
+                }
+
+                let vertexToMove = [];
+                for (let i = 0; i < 2; i++) {
+                    let secondIntersectionPoint = plane.intersectLine(new THREE.Line3(vertices[i][0], vertices[i][2]));
+                    // Which vertex needs to be moved to the intersection
+                    // so that the new face created won't need further
+                    // splitting?
+                    if (secondIntersectionPoint === undefined ||
+                        secondIntersectionPoint.equals(vertices[i][0]) ||
+                        secondIntersectionPoint.equals(vertices[i][2])) {
+                        // No intersection with plane from position 0 to
+                        // position 2, so let that be part of the new face.
+                        vertexToMove[i] = 0;
+                    } else {
+                        vertexToMove[i] = 1;
+                    }
+                }
+
+                for (let i = 0; i < 2; i++) {
+                    // The intersectionPoint replaces the vertex from above.
+                    this.setPointsInArray([intersectionPoint], this.positions, positions[i][vertexToMove[i]]);
+                    splitPositions.add(positions[i][vertexToMove[i]]);
+                    // A new face needs to be added for the other side of the triangle.
+                    if (vertexToMove[i] == 0) {
+                        this.setPointsInArray([vertices[i][2], vertices[i][0], intersectionPoint],
+                                              this.positions, this.positions.length);
+                        splitPositions.add(this.positions.length-3);
+                    } else {
+                        this.setPointsInArray([intersectionPoint, vertices[i][1], vertices[i][2]],
+                                              this.positions, this.positions.length);
+                        splitPositions.add(this.positions.length-9);
+                    }
+                }
+
+                // Add to this.neighbors
+                let newNeighborIndex = this.neighbors.length;
+                if (vertexToMove[0] == 1 && vertexToMove[1] == 1) {
+                    this.neighbors.push(positions[1][0]/3,
+                                        this.neighbors[positions[0][1]/3],
+                                        positions[0][1]/3);
+                    this.neighbors.push(positions[0][0]/3,
+                                        this.neighbors[positions[1][1]/3],
+                                        positions[1][1]/3);
+                } else if (vertexToMove[0] == 0 && vertexToMove[1] == 0) {
+                    this.neighbors.push(this.neighbors[positions[0][2]/3],
+                                        positions[1][0]/3,
+                                        positions[0][2]/3);
+                    this.neighbors.push(this.neighbors[positions[1][2]/3],
+                                        positions[0][0]/3,
+                                        positions[1][2]/3);
+                } else if (vertexToMove[0] == 1 && vertexToMove[1] == 0) {
+                    this.neighbors.push(newNeighborIndex + 4,
+                                        this.neighbors[positions[0][1]/3],
+                                        positions[0][1]/3);
+                    this.neighbors.push(this.neighbors[positions[1][2]/3],
+                                        newNeighborIndex,
+                                        positions[1][2]/3);
+                } else if (vertexToMove[0] == 0 && vertexToMove[1] == 1) {
+                    this.neighbors.push(this.neighbors[positions[0][2]/3],
+                                        newNeighborIndex + 3,
+                                        positions[0][2]/3);
+                    this.neighbors.push(newNeighborIndex + 1,
+                                        this.neighbors[positions[1][1]/3],
+                                        positions[1][1]/3);
+                }
+
+                // Make the above assignments symmetric.
+                for (let i = newNeighborIndex; i < newNeighborIndex+6; i++) {
+                    this.neighbors[this.neighbors[i]] = i;
+                }
+                // Update the reverseIslands.
+                this.reverseIslands[this.faceFromPosition(this.positions.length-18)] =
+                    this.reverseIslands[this.faceFromPosition(positions[0][0])];
+                this.reverseIslands[this.faceFromPosition(this.positions.length- 9)] =
+                    this.reverseIslands[this.faceFromPosition(positions[1][0])];
+                splitsMade++;
             }
         }
         return splitsMade;

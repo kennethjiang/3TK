@@ -439,8 +439,6 @@ class ConnectedSTL {
         };
         // Remove all degenerate triangles where the normal is 0 when rounded to float.
         this.removeDegenerates(Array.from(new Array(this.positions.length/9).keys()), equalNormals);
-        // Merge all faces using a normal rounded to float when comparing face normals.
-        this.mergeFaces(equalNormals);
         // Remove all the triangles that aren't part of any shapes anymore.
         this.deleteDegenerates();
     }

@@ -621,10 +621,6 @@ class ConnectedSTL {
         return splitsMade;
     }
 
-    debugLog(...args) {
-        //console.log(...args);
-    }
-
     // Merge faces where possible.
     //
     // Assumes that the current shape has no degenerates.

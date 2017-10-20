@@ -515,13 +515,31 @@ class ConnectedSTL {
                     vertices[i] = this.vector3sFromPositions(positions[i], this.positions);
                 }
 
-                let edge = new THREE.Line3(vertices[0][0], vertices[1][0]);
-                let intersectionPoint = plane.intersectLine(edge);
-                if (intersectionPoint === undefined ||
-                    intersectionPoint.equals(vertices[0][0]) ||
-                    intersectionPoint.equals(vertices[0][1])) {
+                // We only use plane.distanceTo so that the result is
+                // consistent for later steps.  If we used
+                // intersectLine, there might be rounding issues that
+                // would confuse the algorithm.
+                let distances = [plane.distanceToPoint(vertices[0][0]),
+                                 plane.distanceToPoint(vertices[0][1])];
+                if (distances[0] == 0) {
+                    splitPositions.add(positions[0][0]);
+                }
+                if (distances[1] == 0) {
+                    splitPositions.add(positions[0][1]);
+                }
+                if (distances[0] == 0 ||
+                    distances[1] == 0 ||
+                    distances[0] < 0 && distances[1] < 0 ||
+                    distances[0] > 0 && distances[1] > 0) {
+                    // Either one of the end points is already an
+                    // intersection or both are on the same side of
+                    // the plane.
                     continue;
                 }
+                // By this point, neither is 0 and one is greater than
+                // 0 and one is less than 0.
+                let alpha = distances[0]/(distances[0]-distances[1]);
+                let intersectionPoint = vertices[0][0].clone().lerp(vertices[0][1], alpha);
 
                 let vertexToMove = [];
                 for (let i = 0; i < 2; i++) {

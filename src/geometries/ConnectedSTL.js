@@ -26,6 +26,7 @@ class ConnectedSTL {
         return newConnectedSTL;
     }
 
+    // Uses on the positions from a THREE.BufferGeometry.
     fromBufferGeometry(bufferGeometry) {
         this.positions = Array.from(bufferGeometry.getAttribute('position').array);
         if (!this.findNeighbors()) {
@@ -35,31 +36,18 @@ class ConnectedSTL {
         return this;
     }
 
-    keyForTrio(startIndex, precisionPoints = -1) {
+    // Convert 3 consecutive positions into a string usable as a key in a Map.
+    keyForTrio(startIndex) {
         let array = this.positions;
         let [v1, v2, v3] = [array[startIndex], array[startIndex+1], array[startIndex+2]];
-        if (precisionPoints >= 0) {
-            var precision = Math.pow( 10, precisionPoints );
-            return Math.round( v1 * precision ) + '_' + Math.round( v2 * precision ) + '_' + Math.round( v3 * precision );
-        } else {
-            return v1 + '_' + v2 + '_' + v3;
-        }
+        return v1 + '_' + v2 + '_' + v3;
     }
 
-    keyForVector3(vector3, precisionPoints = -1) {
-        let [v1, v2, v3] = [vector3.x, vector3.y, vector3.z];
-        if (precisionPoints >= 0) {
-            var precision = Math.pow( 10, precisionPoints );
-            return Math.round( v1 * precision ) + '_' + Math.round( v2 * precision ) + '_' + Math.round( v3 * precision );
-        } else {
-            return v1 + '_' + v2 + '_' + v3;
-        }
-    }
-
-    vertexPositionMap(precisionPoints = -1) {
+    // Returns a Map of keyForTrio to positions in this.positions.
+    vertexPositionMap() {
         let map = new Map();
         for (var posIndex = 0; posIndex < this.positions.length; posIndex += 3) {
-            let key = this.keyForTrio(posIndex, precisionPoints);
+            let key = this.keyForTrio(posIndex);
             if (!map.has(key)) {
                 map.set(key, []);
             }
@@ -68,29 +56,30 @@ class ConnectedSTL {
         return map;
     }
 
-    // Given a faceIndex (0 to faceCount-1), return position in originalPositions.
+    // Given a faceIndex (0 to faceCount-1), return an index in this.positions.
     positionFromFace(faceIndex) {
         return faceIndex*9;
     }
 
-    // Given an index in originalPositions, return the face (0 to facecount-1).
+    // Given an index in this.positions, return the face (0 to facecount-1).
     faceFromPosition(positionIndex) {
         return Math.floor(positionIndex/9);
     }
-    // Given an index in originalPositions, return the edge (0 to 2).
+    // Given an index in this.positions, return the edge in the face (0 to 2).
     edgeFromPosition(positionIndex) {
         return (positionIndex % 9) / 3;
     }
-    // Given a faceIndex (0 to faceCount-1) and edgeIndex (0 to 2), return position in originalPositions.
+    // Given a faceIndex (0 to faceCount-1) and edgeIndex (0 to 2), return index in this.positions.
     positionFromFaceEdge(faceIndex, edgeIndex) {
         return this.positionFromFace(faceIndex) + 3*edgeIndex;
     }
-    // Given index in originalPositions, return a Vector3 of that point.
-    vector3FromPosition(position, positions) {
-        return new THREE.Vector3().fromArray(positions, position);
+    // Given index in this.positions, return a THREE.Vector3 of that point.
+    vector3FromPosition(position) {
+        return new THREE.Vector3().fromArray(this.positions, position);
     }
 
-    // Gets the position of an adjacent vertex in the face.  If direction is +3, go forward.  If -3, go to previous.
+    // Gets the position of an adjacent vertex in the face.  If
+    // direction is +3, go forward.  If -3, go to previous.
     otherPositionInFace(posIndex, direction) {
         let faceDifference = this.faceFromPosition(posIndex + direction) - this.faceFromPosition(posIndex);
         return posIndex + direction - this.positionFromFace(faceDifference);
@@ -100,9 +89,8 @@ class ConnectedSTL {
     nextPositionInFace(posIndex) {
         return this.otherPositionInFace(posIndex, 3);
     }
-    // Gets the previous position in the face, which is the
-    // previous point unless we're at the start and then it's the
-    // last point.
+    // Gets the previous position in the face, which is the previous
+    // point unless we're at the start and then it's the last point.
     previousPositionInFace(posIndex) {
         return this.otherPositionInFace(posIndex, -3);
     }
@@ -122,9 +110,7 @@ class ConnectedSTL {
         for (let edgeIndex = 0; edgeIndex < 3; edgeIndex++) {
             let currentPos = this.positionFromFaceEdge(faceIndex, edgeIndex);
             let nextPos = this.nextPositionInFace(currentPos);
-            if (this.positions[currentPos  ] == this.positions[nextPos  ] &&
-                this.positions[currentPos+1] == this.positions[nextPos+1] &&
-                this.positions[currentPos+2] == this.positions[nextPos+2]) {
+            if (this.equalTrios(currentPos, nextPos)) {
                 return true;
             }
         }
@@ -133,7 +119,7 @@ class ConnectedSTL {
 
     // Recalculate the neighbors.
     // this.neighbors will be an array with length 3 times the number of faces.
-    // Each element is the connection between
+    // this.reverseIslands will be an array with length equal to the number of faces.
     findNeighbors() {
         var vertexPosMap = this.vertexPositionMap();
         const faceCount = this.positions.length / 9;
@@ -142,7 +128,7 @@ class ConnectedSTL {
         // union-join algorithm.
         let findIsland = function (faceIndex) {
             if (faces[faceIndex].island != null && faces[faceIndex].island != faceIndex) {
-                faces[faceIndex].island = findIsland(faces[faceIndex].island)
+                faces[faceIndex].island = findIsland(faces[faceIndex].island);
             }
             return faces[faceIndex].island;
         }
@@ -231,8 +217,8 @@ class ConnectedSTL {
         let facesAngle = (posIndex1, posIndex2) => {
             let normal1 = this.faceNormal(this.faceFromPosition(posIndex1));
             let normal2 = this.faceNormal(this.faceFromPosition(posIndex2));
-            let commonPoint1 = this.vector3FromPosition(posIndex1, this.positions);
-            let commonPoint2 = this.vector3FromPosition(this.nextPositionInFace(posIndex1), this.positions);
+            let commonPoint1 = this.vector3FromPosition(posIndex1);
+            let commonPoint2 = this.vector3FromPosition(this.nextPositionInFace(posIndex1));
             let edge1 = commonPoint2.clone().sub(commonPoint1);
             let normalsAngle = normal1.angleTo(normal2); // Between 0 and pi.
             let facesAngle = Math.PI;
@@ -267,7 +253,7 @@ class ConnectedSTL {
             setNeighbor(posIndex1, posIndex2);
             setNeighbor(posIndex2, posIndex1);
 
-            let islandIndex = joinIslands(this.faceFromPosition(posIndex1), this.faceFromPosition(posIndex2));
+            joinIslands(this.faceFromPosition(posIndex1), this.faceFromPosition(posIndex2));
             // Finally, remove from the set of edges that still need to be resolved.
             unconnectedEdges.delete(posIndex1);
             unconnectedEdges.delete(posIndex2);
@@ -345,15 +331,15 @@ class ConnectedSTL {
                     }
                 }
             }
-            if (worstAngle != null) { // This had better be true!
-                // Remove the possible neighbor in both directions.
-                faces[this.faceFromPosition(worstPos)].possibleNeighbors[this.edgeFromPosition(worstPos)].delete(worstOtherPos);
-                faces[this.faceFromPosition(worstOtherPos)].possibleNeighbors[this.edgeFromPosition(worstOtherPos)].delete(worstPos);
-                foundOne = true;
-            } else {
+            if (worstAngle === null) {
                 // Couldn't find all neighbors.  Maybe the shape is non-manifold?
                 return false;
             }
+            // Remove the possible neighbor in both directions.
+            faces[this.faceFromPosition(worstPos)].possibleNeighbors[this.edgeFromPosition(worstPos)].delete(worstOtherPos);
+            faces[this.faceFromPosition(worstOtherPos)].possibleNeighbors[this.edgeFromPosition(worstOtherPos)].delete(worstPos);
+            foundOne = true;
+
         }
 
         // All done, now save the result.
@@ -370,7 +356,7 @@ class ConnectedSTL {
             }
             for (let edgeIndex = 0; edgeIndex < 3; edgeIndex++) {
                 let neighbor = faces[faceIndex].neighbors[edgeIndex];
-                this.neighbors[faceIndex*3 + edgeIndex] = neighbor === null ? null : neighbor / 3;
+                this.neighbors[faceIndex*3 + edgeIndex] = (neighbor === null ? null : neighbor / 3);
             }
         }
         return true;
@@ -464,7 +450,7 @@ class ConnectedSTL {
 
     // Gets all Vector3s for the positionList
     vector3sFromPositions(positionList, positions) {
-        return positionList.map(p => this.vector3FromPosition(p, positions));
+        return positionList.map(p => this.vector3FromPosition(p));
     }
 
     getNeighborPosition(position) {
@@ -657,7 +643,7 @@ class ConnectedSTL {
                     }
                     let startPosition = this.positionFromFaceEdge(faceIndex, edgeIndex);
                     let currentPosition = startPosition;
-                    let start = this.vector3FromPosition(startPosition, this.positions);
+                    let start = this.vector3FromPosition(startPosition);
                     // Test if moving the point would affect any face normals.
                     do {
                         currentPosition = this.getNeighborPosition(this.nextPositionInFace(currentPosition));

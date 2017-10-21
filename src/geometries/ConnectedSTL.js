@@ -480,10 +480,10 @@ class ConnectedSTL {
     // Split all edges in this geometry so that there are no edges
     // that cross the plane.
     splitFaces(plane) {
-        // Maintain a list of positions that intersect the plane.
-        // Each position is on the plane.
+        // Maintain a list of coordinates that intersect the plane.
+        // Each position is on the plane for the purpose of collapsing
+        // later.
         let splitPositions = new Set();
-        let splitsMade = 0;
 
         const faceCount = this.positions.length/9;
         for (let faceIndex = 0; faceIndex < faceCount; faceIndex++) {
@@ -500,7 +500,7 @@ class ConnectedSTL {
                 */
                 let positions = []; // 2D array, element 0 is for current face, element 1 for neighbor.
                 positions[0] = this.positionsFromFace(faceIndex, edgeIndex);
-                if (splitPositions.has(positions[0][0]) || splitPositions.has(positions[0][1])) {
+                if (splitPositions.has(this.keyForTrio(positions[0][0])) || splitPositions.has(this.keyForTrio(positions[0][1]))) {
                     // One of the end ponts is already split so there's no
                     // need to split here.  This saves us from creating
                     // degenerate triangles when the interseciton
@@ -522,10 +522,10 @@ class ConnectedSTL {
                 let distances = [plane.distanceToPoint(vertices[0][0]),
                                  plane.distanceToPoint(vertices[0][1])];
                 if (distances[0] == 0) {
-                    splitPositions.add(positions[0][0]);
+                    splitPositions.add(this.keyForTrio(positions[0][0]));
                 }
                 if (distances[1] == 0) {
-                    splitPositions.add(positions[0][1]);
+                    splitPositions.add(this.keyForTrio(positions[0][1]));
                 }
                 if (distances[0] == 0 ||
                     distances[1] == 0 ||
@@ -561,16 +561,14 @@ class ConnectedSTL {
                 for (let i = 0; i < 2; i++) {
                     // The intersectionPoint replaces the vertex from above.
                     this.setPointsInArray([intersectionPoint], this.positions, positions[i][vertexToMove[i]]);
-                    splitPositions.add(positions[i][vertexToMove[i]]);
+                    splitPositions.add(this.keyForTrio(positions[i][vertexToMove[i]]));
                     // A new face needs to be added for the other side of the triangle.
                     if (vertexToMove[i] == 0) {
                         this.setPointsInArray([vertices[i][2], vertices[i][0], intersectionPoint],
                                               this.positions, this.positions.length);
-                        splitPositions.add(this.positions.length-3);
                     } else {
                         this.setPointsInArray([intersectionPoint, vertices[i][1], vertices[i][2]],
                                               this.positions, this.positions.length);
-                        splitPositions.add(this.positions.length-9);
                     }
                 }
 
@@ -615,10 +613,67 @@ class ConnectedSTL {
                     this.reverseIslands[this.faceFromPosition(positions[0][0])];
                 this.reverseIslands[this.faceFromPosition(this.positions.length- 9)] =
                     this.reverseIslands[this.faceFromPosition(positions[1][0])];
-                splitsMade++;
             }
         }
-        return splitsMade;
+        return splitPositions;
+    }
+
+    // Given a plane, split along the plane and remove the negative
+    // side of the plane.
+    collapse(plane) {
+        let splitPositions = this.splitFaces(plane);
+        let facesCollapsed = 0;
+        // There should now be no faces with points on both the
+        // positive and negative half of the plane.
+        let previousFacesCollapsed = 0;
+        do {
+            previousFacesCollapsed = facesCollapsed;
+            for (let faceIndex = 0; faceIndex < this.positions.length/9; faceIndex++) {
+                for (let edgeIndex = 0; edgeIndex < 3; edgeIndex++) {
+                    let positions = this.positionsFromFace(faceIndex, edgeIndex);
+                    let vertices = this.vector3sFromPositions(positions);
+
+                    if (this.reverseIslands[faceIndex] == null ||
+                        this.isFaceDegenerate(faceIndex)) {
+                        break;
+                    }
+                    // Is vertices[0] in the split?
+                    if (!splitPositions.has(this.keyForTrio(vertices[0])) &&
+                        plane.distanceToPoint(vertices[0]) != 0) {
+                        // This is not on the split.
+
+                        continue;
+                    }
+                    // Is vertices[1] in the collapsable side?
+                    if (splitPositions.has(this.keyForTrio(positions[1])) ||
+                        plane.distanceToPoint(vertices[1]) > 0) {
+                        // This is not in the negative side.
+                        continue;
+                    }
+                    // Is vertices[2] in the split?  ***Do I need this test?
+/*                    if (!splitPositions.has(positions[2]) &&
+                        plane.distanceToPoint(vertices[2]) != 0) {
+                        // This is not on the split.
+                        continue;
+                    }*/
+                    // We can collapse vertices[1] to vertices[0].
+                    facesCollapsed++;
+                    let startPosition = positions[0];
+                    let currentPosition = startPosition;
+                    let faces = [];
+                    do {
+                        let nextPosition = this.nextPositionInFace(currentPosition);
+                        this.setPointsInArray([vertices[0]], this.positions, nextPosition);
+                        faces.push(this.faceFromPosition(currentPosition));
+                        currentPosition = this.getNeighborPosition(nextPosition);
+                    } while (currentPosition != startPosition);
+                    this.removeDegenerates(faces);
+                }
+            }
+            console.log(facesCollapsed);
+        } while (previousFacesCollapsed != facesCollapsed);
+        this.removeDegenerates(Array.from(new Array(this.positions.length/9).keys()));
+        return facesCollapsed;
     }
 
     // Merge faces where possible.

@@ -452,7 +452,7 @@ class ConnectedSTL {
     }
 
     // Gets all Vector3s for the positionList
-    vector3sFromPositions(positionList, positions) {
+    vector3sFromPositions(positionList) {
         return positionList.map(p => this.vector3FromPosition(p));
     }
 
@@ -474,7 +474,7 @@ class ConnectedSTL {
     faceNormal(faceIndex) {
         let [p0, p1, p2] =
             this.positionsFromFace(faceIndex, 0);
-        return new THREE.Triangle(...this.vector3sFromPositions([p0, p1, p2], this.positions)).normal();
+        return new THREE.Triangle(...this.vector3sFromPositions([p0, p1, p2])).normal();
     }
 
     // Split all edges in this geometry so that there are no edges
@@ -512,7 +512,7 @@ class ConnectedSTL {
                                   this.previousPositionInFace(positions[1][0]));
                 let vertices = []; // 2D array, element 0 is for current face, element 1 for neighbor.
                 for (let i = 0; i < 2; i++) {
-                    vertices[i] = this.vector3sFromPositions(positions[i], this.positions);
+                    vertices[i] = this.vector3sFromPositions(positions[i]);
                 }
 
                 // We only use plane.distanceTo so that the result is
@@ -665,8 +665,7 @@ class ConnectedSTL {
                         let thirdPosition = this.nextPositionInFace(nextPosition);
                         let neighborVertices = this.vector3sFromPositions([currentPosition,
                                                                            nextPosition,
-                                                                           thirdPosition],
-                                                                          this.positions);
+                                                                           thirdPosition]);
                         let neighborNormal = new THREE.Triangle(...neighborVertices).normal();
                         // After moving the vertex, this will be the new normal.
                         let newNeighborNormal = new THREE.Triangle(neighborVertices[0],
@@ -755,7 +754,7 @@ class ConnectedSTL {
             let positions = [];
             positions[0] = this.positionsFromFace(faceIndex, 0);
             let vertices = [];
-            vertices[0] = this.vector3sFromPositions(positions[0], this.positions);
+            vertices[0] = this.vector3sFromPositions(positions[0]);
             let normal = new THREE.Triangle(...vertices[0]).normal();
             if (!equalNormals(normal, new THREE.Vector3(0,0,0))) {
                 // Nothing to do.
@@ -785,7 +784,7 @@ class ConnectedSTL {
             positions[1].push(this.nextPositionInFace(positions[1][0]),
                               this.previousPositionInFace(positions[1][0]));
             for (let i = 0; i < 2; i++) {
-                vertices[i] = this.vector3sFromPositions(positions[i], this.positions);
+                vertices[i] = this.vector3sFromPositions(positions[i]);
             }
             for (let i = 0; i < 2; i++) {
                 this.setPointsInArray([vertices[i][1]], this.positions, positions[1-i][2]);

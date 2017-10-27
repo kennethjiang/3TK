@@ -70,9 +70,9 @@ describe("ConnectedSTL", function() {
 
             expect(newGeometries.length).to.equal(expectedGeometriesCount);
 
-            console.log(connectedBufferGeometry.collapse(new THREE.Plane(
-                new THREE.Vector3(1,0,0), -((boundingBox.max.x + boundingBox.min.x*2)/3))));
-            console.log("merged: " + connectedBufferGeometry.mergeFaces());
+            connectedBufferGeometry.collapse(new THREE.Plane(
+                new THREE.Vector3(1,0,0), -((boundingBox.max.x + boundingBox.min.x*2)/3)));
+            connectedBufferGeometry.mergeFaces();
             if (writeShapes) {
                 let mesh = new THREE.Mesh(connectedBufferGeometry.bufferGeometry());
                 let obj = new THREE.Object3D();
@@ -80,7 +80,7 @@ describe("ConnectedSTL", function() {
                 fs.writeFileSync(filename + "_collapsed.stl", new Buffer(new STLExporter().parse(obj)), 'ascii');
             }
         }
-/*
+
         it("Simple tetrahedron", function() {
             testFile("tetrahedron", 1);
         });
@@ -108,7 +108,7 @@ describe("ConnectedSTL", function() {
         it("27 cubes in 3 by 3 by 3 formation with facets in lightly shuffled order", function() {
             testFile("shuffled_rubix", 27);
         });
-*/
+
         it("Big object: Dinosaur Jump", function() {
             this.timeout(40000);
             testFile("DINOSAUR_JUMP", 1);
@@ -126,14 +126,13 @@ describe("ConnectedSTL", function() {
             let stl = fs.readFileSync("test/DINOSAUR_JUMP.stl", {encoding: "binary"});
             let geometry = new STLLoader().parse(stl);
             let connectedBufferGeometry = new ConnectedSTL().fromBufferGeometry(geometry);
-            console.log("faces merged: " + connectedBufferGeometry.mergeFaces(function (v0, v1) {
+            connectedBufferGeometry.mergeFaces(function (v0, v1) {
                 return v0.angleTo(v1) < Math.PI/180*20;
-            }));
+            });
             let mesh = new THREE.Mesh(connectedBufferGeometry.bufferGeometry());
             let obj = new THREE.Object3D();
             obj.add(mesh);
             fs.writeFileSync("DINOSAUR_JUMP_merged.stl", new Buffer(new STLExporter().parse(obj)), 'ascii');
         });
-
     });
 });

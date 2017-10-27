@@ -26,7 +26,7 @@ class ConnectedSTL {
         return newConnectedSTL;
     }
 
-    // Uses on the positions from a THREE.BufferGeometry.
+    // Uses only the positions from a THREE.BufferGeometry.
     fromBufferGeometry(bufferGeometry) {
         this.positions = Array.from(bufferGeometry.getAttribute('position').array);
         if (!this.findNeighbors()) {
@@ -458,7 +458,11 @@ class ConnectedSTL {
 
     // Returns the neighbor edge position of a position.
     getNeighborPosition(position) {
-        return this.neighbors[position/3]*3;
+        if (Number.isInteger(this.neighbors[position/3])) {
+            return this.neighbors[position/3]*3;
+        } else {
+            return this.neighbors[position/3];
+        }
     }
 
     // copy the x,y,z of the points into the array at the offset
@@ -618,6 +622,33 @@ class ConnectedSTL {
         return splitPositions;
     }
 
+    collapse2(plane) {
+        let splitPositions = this.splitFaces(plane);
+        let facesCollapsed = 0;
+        // There should now be no faces with points on both the
+        // positive and negative half of the plane.
+        for (let faceIndex = 0; faceIndex < this.positions.length/9; faceIndex++) {
+            for (let edgeIndex = 0; edgeIndex < 3; edgeIndex++) {
+                let positions = this.positionsFromFace(faceIndex, edgeIndex);
+                let vertices = this.vector3sFromPositions(positions);
+                if (this.reverseIslands[faceIndex] == null ||
+                    this.isFaceDegenerate(faceIndex)) {
+                    break;
+                }
+                // Is vertices[1] in the collapsable side?
+                if (splitPositions.has(this.keyForTrio(positions[1])) ||
+                    plane.distanceToPoint(vertices[1]) > 0) {
+                    // This is not in the negative side.
+                    continue;
+                }
+                this.reverseIslands[faceIndex] = null;
+            }
+        }
+        this.removeDegenerates(Array.from(new Array(this.positions.length/9).keys()));
+        this.deleteDegenerates();
+        return facesCollapsed;
+    }
+
     // Given a plane, split along the plane and remove the negative
     // side of the plane.
     collapse(plane) {
@@ -638,10 +669,9 @@ class ConnectedSTL {
                         break;
                     }
                     // Is vertices[0] in the split?
-                    if (!splitPositions.has(this.keyForTrio(vertices[0])) &&
+                    if (!splitPositions.has(this.keyForTrio(positions[0])) &&
                         plane.distanceToPoint(vertices[0]) != 0) {
                         // This is not on the split.
-
                         continue;
                     }
                     // Is vertices[1] in the collapsable side?
@@ -651,15 +681,35 @@ class ConnectedSTL {
                         continue;
                     }
                     // Is vertices[2] in the split?  ***Do I need this test?
-/*                    if (!splitPositions.has(positions[2]) &&
+                    if (!splitPositions.has(this.keyForTrio(positions[2])) &&
                         plane.distanceToPoint(vertices[2]) != 0) {
                         // This is not on the split.
                         continue;
-                    }*/
+                    }
                     // We can collapse vertices[1] to vertices[0].
-                    facesCollapsed++;
                     let startPosition = positions[0];
+                    let start = this.vector3FromPosition(startPosition);
                     let currentPosition = startPosition;
+/*                    do {
+                        let nextPosition = this.nextPositionInFace(currentPosition);
+                        let thirdPosition = this.nextPositionInFace(nextPosition);
+                        let neighborVertices = this.vector3sFromPositions([currentPosition,
+                                                                           nextPosition,
+                                                                           thirdPosition]);
+                        let newNeighborNormal = new THREE.Triangle(neighborVertices[0],
+                                                                   start,
+                                                                   neighborVertices[2]).normal();
+                        if (splitPositions.has(this.keyForTrio(currentPosition)) &&
+                            splitPositions.has(this.keyForTrio(startPosition)) &&
+                            splitPositions.has(this.keyForTrio(thirdPosition)) &&
+                            newNeighborNormal.equals(plane.normal.clone().negate())) {
+                            break;
+                        }
+                        currentPosition = this.getNeighborPosition(nextPosition);
+                    } while (currentPosition != startPosition);
+                    if (currentPosition != startPosition) {
+                        break;
+                    }*/
                     let faces = [];
                     do {
                         let nextPosition = this.nextPositionInFace(currentPosition);
@@ -667,6 +717,7 @@ class ConnectedSTL {
                         faces.push(this.faceFromPosition(currentPosition));
                         currentPosition = this.getNeighborPosition(nextPosition);
                     } while (currentPosition != startPosition);
+                    facesCollapsed++;
                     this.removeDegenerates(faces);
                 }
             }

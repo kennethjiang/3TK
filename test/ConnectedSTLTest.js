@@ -5,7 +5,7 @@ import * as THREE from 'three';
 
 describe("ConnectedSTL", function() {
     describe("isolatedBufferGeometries", function() {
-        let testFile = function (filename, expectedGeometriesCount, writeShapes = false) {
+        let testFile = function (filename, expectedGeometriesCount, writeShapes = true) {
             // Test that the number of shapes is as expected.
             let stl = fs.readFileSync("test/" + filename + ".stl", {encoding: "binary"});
             let geometry = new STLLoader().parse(stl);
@@ -35,10 +35,10 @@ describe("ConnectedSTL", function() {
                 obj.add(mesh);
                 fs.writeFileSync(filename + "_split.stl", new Buffer(new STLExporter().parse(obj)), 'ascii');
             }
-            expect(splits).to.be.greaterThan(0);
+            expect(splits.size).to.be.greaterThan(0);
             let newFaceCount = connectedBufferGeometry.positions.length/9;
             // Splitting an edge affects two faces.
-            expect(newFaceCount).to.equal(oldFaceCount+splits*2);
+            expect(newFaceCount).to.be.greaterThan(oldFaceCount);
             let oldNeighbors = connectedBufferGeometry.neighbors.slice(0);
             connectedBufferGeometry.neighbors = [];
             connectedBufferGeometry.reverseIslands = [];
@@ -69,8 +69,18 @@ describe("ConnectedSTL", function() {
             }
 
             expect(newGeometries.length).to.equal(expectedGeometriesCount);
-        }
 
+            console.log(connectedBufferGeometry.collapse(new THREE.Plane(
+                new THREE.Vector3(1,0,0), -((boundingBox.max.x + boundingBox.min.x*2)/3))));
+            console.log("merged: " + connectedBufferGeometry.mergeFaces());
+            if (writeShapes) {
+                let mesh = new THREE.Mesh(connectedBufferGeometry.bufferGeometry());
+                let obj = new THREE.Object3D();
+                obj.add(mesh);
+                fs.writeFileSync(filename + "_collapsed.stl", new Buffer(new STLExporter().parse(obj)), 'ascii');
+            }
+        }
+/*
         it("Simple tetrahedron", function() {
             testFile("tetrahedron", 1);
         });
@@ -98,7 +108,7 @@ describe("ConnectedSTL", function() {
         it("27 cubes in 3 by 3 by 3 formation with facets in lightly shuffled order", function() {
             testFile("shuffled_rubix", 27);
         });
-
+*/
         it("Big object: Dinosaur Jump", function() {
             this.timeout(40000);
             testFile("DINOSAUR_JUMP", 1);

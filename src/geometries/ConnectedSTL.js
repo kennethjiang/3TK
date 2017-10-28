@@ -629,14 +629,6 @@ class ConnectedSTL {
         // Do nothing because we don't yet know how.
     }
 
-    // Try to make triangles have bigger angles.
-    //
-    // If two triangles gave the same normal, see if connecting edge
-    // can be rotated to make the triangles not have small angles.
-    retriangule(equalNormals = function(x, y) { return x.equals(y); }) {) {
-        
-    }
-
     // Merge faces where possible.
     //
     // Assumes that the current shape has no degenerates.
@@ -754,6 +746,59 @@ class ConnectedSTL {
         return degeneratesRemoved;
     }
 
+    // Move the edge that connects to triangles and instead put it
+    // between the other two points.
+    //
+    // position is the edge to move.
+    rotateEdge(position) {
+        let positions = [];
+        positions[0] = [this.nextPositionInFace(position)];
+        positions[0].push(this.nextPositionInFace(positions[0][0]),
+                          this.previousPositionInFace(positions[0][0]));
+        // Get neighbors so that positions[0][2] is connected to
+        // positions[1][0] and positions[1][2] is connected to
+        // positions[0][0].
+        positions[1] = [this.nextPositionInFace(this.getNeighborPosition(positions[0][2]))];
+        positions[1].push(this.nextPositionInFace(positions[1][0]),
+                          this.previousPositionInFace(positions[1][0]));
+        let vertices = [];
+        for (let i = 0; i < 2; i++) {
+            vertices[i] = this.vector3sFromPositions(positions[i]);
+        }
+        for (let i = 0; i < 2; i++) {
+            this.setPointsInArray([vertices[i][1]], this.positions, positions[1-i][2]);
+        }
+        // Adjust neighbors.
+        for (let i=0; i < 2; i++) {
+            this.neighbors[positions[  i][2]/3] = this.neighbors[positions[1-i][1]/3];
+            this.neighbors[positions[1-i][1]/3] =                positions[  i][1]/3;
+        }
+        // Make the above assignments symmetric.
+        for (let i = 0; i < 2; i++) {
+            for (let j = 0; j < 3; j++) {
+                this.neighbors[this.neighbors[positions[i][j]/3]] = positions[i][j]/3;
+            }
+        }
+    }
+
+    // Try to make triangles have bigger angles.
+    //
+    // If two triangles gave the same normal, see if connecting edge
+    // can be rotated to make the triangles not have small angles.
+    retriangule(equalNormals = function(x, y) { return x.equals(y); }) {
+        for (let faceIndex of faces) {
+            if (this.reverseIslands[faceIndex]) {
+                // Already going to be remove.
+                continue;
+            }
+            for (let edgeIndex = 0; edgeIndex < 3; edgeIndex++) {
+                
+            }
+
+        }
+    }
+        
+
     // Reconnect faces with a normal of 0 due to a 180 degree angle so
     // that the output will have only faces with normal non-zero.  We
     // check if the normal is 0 as a 32-bit float.
@@ -790,32 +835,7 @@ class ConnectedSTL {
                     largestAngle = angle;
                 }
             }
-            // Move positions so that positions[0][1] sits on the line
-            // between positions[0][0] and positions[0][2].
-            positions[0] = this.positionsFromFace(faceIndex, (largestIndex+2) % 3);
-            // Get neighbors so that positions[0][2] is connected to
-            // positions[1][0] and positions[1][2] is connected to
-            // positions[0][0].
-            positions[1] = [this.nextPositionInFace(this.getNeighborPosition(positions[0][2]))];
-            positions[1].push(this.nextPositionInFace(positions[1][0]),
-                              this.previousPositionInFace(positions[1][0]));
-            for (let i = 0; i < 2; i++) {
-                vertices[i] = this.vector3sFromPositions(positions[i]);
-            }
-            for (let i = 0; i < 2; i++) {
-                this.setPointsInArray([vertices[i][1]], this.positions, positions[1-i][2]);
-            }
-            // Adjust neighbors.
-            for (let i=0; i < 2; i++) {
-                this.neighbors[positions[  i][2]/3] = this.neighbors[positions[1-i][1]/3];
-                this.neighbors[positions[1-i][1]/3] =                positions[  i][1]/3;
-            }
-            // Make the above assignments symmetric.
-            for (let i = 0; i < 2; i++) {
-                for (let j = 0; j < 3; j++) {
-                    this.neighbors[this.neighbors[positions[i][j]/3]] = positions[i][j]/3;
-                }
-            }
+            this.rotateEdge(this.positionFromFaceEdge(faceIndex, (largestIndex+1) % 3));
             degeneratesRemoved++;
         }
         return degeneratesRemoved;

@@ -781,23 +781,28 @@ class ConnectedSTL {
         }
     }
 
+    // Angle of abc.
+    angle3(left, middle, right) {
+        return left.clone().sub(middle).angleTo(right.clone().sub(middle));
+    }
+
     // Try to make triangles have bigger angles.
     //
-    // If two triangles gave the same normal, see if connecting edge
+    // If two triangles have the same normal, see if connecting edge
     // can be rotated to make the triangles not have small angles.
-    retriangule(equalNormals = function(x, y) { return x.equals(y); }) {
+    retriangle(faces, equalNormals = function(x, y) { return x.equals(y); }) {
         for (let faceIndex of faces) {
             if (this.reverseIslands[faceIndex]) {
                 // Already going to be remove.
                 continue;
             }
             for (let edgeIndex = 0; edgeIndex < 3; edgeIndex++) {
-                
+                continue;
             }
-
+            
         }
     }
-        
+    
 
     // Reconnect faces with a normal of 0 due to a 180 degree angle so
     // that the output will have only faces with normal non-zero.  We
@@ -829,7 +834,7 @@ class ConnectedSTL {
                 let left = vertices[0][i % 3];
                 let middle = vertices[0][(i+1) % 3];
                 let right = vertices[0][(i+2) % 3];
-                let angle = left.clone().sub(middle).angleTo(right.clone().sub(middle));
+                let angle = this.angle3(left, middle, right);
                 if (angle > largestAngle) {
                     largestIndex = (i+1) % 3; // The middle point of a 180 degree angle.
                     largestAngle = angle;

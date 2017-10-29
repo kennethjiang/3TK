@@ -791,18 +791,75 @@ class ConnectedSTL {
     // If two triangles have the same normal, see if connecting edge
     // can be rotated to make the triangles not have small angles.
     retriangle(faces, equalNormals = function(x, y) { return x.equals(y); }) {
-        for (let faceIndex of faces) {
-            if (this.reverseIslands[faceIndex]) {
-                // Already going to be remove.
-                continue;
+        let edgesRotated = 0;
+        let previousEdgesRotated;
+        do {
+            console.log("try");
+            previousEdgesRotated = edgesRotated;
+            for (let faceIndex of faces) {
+                if (this.reverseIslands[faceIndex] === null) {
+                    // Already going to be removed.
+                    continue;
+                }
+                for (let edgeIndex = 0; edgeIndex < 3; edgeIndex++) {
+                    let positions = [this.positionsFromFace(faceIndex, edgeIndex)];
+                    positions[1] = [this.getNeighborPosition(positions[0][0])];
+                    positions[1].push(this.nextPositionInFace(positions[1][0]),
+                                      this.previousPositionInFace(positions[1][0]));
+                    let vertices = [];
+                    let normals = [];
+                    for (let i = 0; i < 2; i++) {
+                        vertices[i] = this.vector3sFromPositions(positions[i]);
+                        normals[i] = new THREE.Triangle(...vertices[i]).normal();
+                    }
+                    if (!equalNormals(normals[0], normals[1])) {
+                        // We can't move these around because the normals are too different.
+                        continue;
+                    }
+                    let smallestAngle = Infinity;
+                    for (let i = 0; i < 2; i++) {
+                        for (let j = 0; j < 3; j++) {
+                            let currentAngle = this.angle3(vertices[i][j],
+                                                           vertices[i][(j+1)%3],
+                                                           vertices[i][(j+2)%3]);
+                            if (currentAngle < smallestAngle) {
+                                smallestAngle = currentAngle;
+                            }
+                        }
+                    }
+                    let newSmallestAngle = Infinity;
+                    for (let i = 0; i < 2; i++) {
+                        let currentAngle = Math.min(
+                            this.angle3(vertices[  i][0], vertices[1-i][2], vertices[  i][2]),
+                            this.angle3(vertices[1-i][2], vertices[  i][2], vertices[  i][0]),
+                            this.angle3(vertices[  i][2], vertices[  i][0], vertices[1-i][2]));
+                        if (currentAngle < newSmallestAngle) {
+                            newSmallestAngle = currentAngle;
+                        }
+                    }
+                    if (newSmallestAngle <= smallestAngle) {
+                        // Rotating this edge would not be an improvement.
+                        continue;
+                    }
+                    if (!equalNormals(new THREE.Triangle(vertices[0][0], vertices[1][2], vertices[0][2]).normal(),
+                                      normals[0])) {
+                        // Mustn't flip the face around.
+                        continue;
+                    }
+                    if (!equalNormals(new THREE.Triangle(vertices[1][0], vertices[0][2], vertices[1][2]).normal(),
+                                      normals[1])) {
+                        // Mustn't flip the face around.
+                        continue;
+                    }
+                    console.log("rotating");
+                    console.log(vertices);
+                    this.rotateEdge(positions[0][0]);
+                    edgesRotated++;
+                }
             }
-            for (let edgeIndex = 0; edgeIndex < 3; edgeIndex++) {
-                continue;
-            }
-            
-        }
+        } while (previousEdgesRotated != edgesRotated);
+        return edgesRotated;
     }
-    
 
     // Reconnect faces with a normal of 0 due to a 180 degree angle so
     // that the output will have only faces with normal non-zero.  We

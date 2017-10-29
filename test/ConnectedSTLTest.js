@@ -80,7 +80,7 @@ describe("ConnectedSTL", function() {
                 fs.writeFileSync(filename + "_collapsed.stl", new Buffer(new STLExporter().parse(obj)), 'ascii');
             }
         }
-
+/*
         it("Simple tetrahedron", function() {
             testFile("tetrahedron", 1);
         });
@@ -133,6 +133,20 @@ describe("ConnectedSTL", function() {
             let obj = new THREE.Object3D();
             obj.add(mesh);
             fs.writeFileSync("DINOSAUR_JUMP_merged.stl", new Buffer(new STLExporter().parse(obj)), 'ascii');
+        });
+*/
+        it("retriangle", function () {
+            this.timeout(30000);
+            let stl = fs.readFileSync("test/lungo.stl", {encoding: "binary"});
+            let geometry = new STLLoader().parse(stl);
+            let connectedBufferGeometry = new ConnectedSTL().fromBufferGeometry(geometry);
+            connectedBufferGeometry.mergeFaces();
+            connectedBufferGeometry.retriangle(
+                Array.from(new Array(connectedBufferGeometry.positions.length/9).keys()));
+            let mesh = new THREE.Mesh(connectedBufferGeometry.bufferGeometry());
+            let obj = new THREE.Object3D();
+            obj.add(mesh);
+            fs.writeFileSync("lungo_retriangle.stl", new Buffer(new STLExporter().parse(obj)), 'ascii');
         });
     });
 });

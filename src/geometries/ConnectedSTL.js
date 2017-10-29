@@ -334,13 +334,12 @@ class ConnectedSTL {
             }
             if (worstAngle === null) {
                 // Couldn't find all neighbors.  Maybe the shape is non-manifold?
-                return false;
+                break;
             }
             // Remove the possible neighbor in both directions.
             faces[this.faceFromPosition(worstPos)].possibleNeighbors[this.edgeFromPosition(worstPos)].delete(worstOtherPos);
             faces[this.faceFromPosition(worstOtherPos)].possibleNeighbors[this.edgeFromPosition(worstOtherPos)].delete(worstPos);
             foundOne = true;
-
         }
 
         // All done, now save the result.
@@ -511,11 +510,14 @@ class ConnectedSTL {
                     // calculation isn't an exact value.
                     continue;
                 }
-                positions[1] = [this.getNeighborPosition(positions[0][0])];
-                positions[1].push(this.nextPositionInFace(positions[1][0]),
-                                  this.previousPositionInFace(positions[1][0]));
-                let vertices = []; // 2D array, element 0 is for current face, element 1 for neighbor.
-                for (let i = 0; i < 2; i++) {
+                if (Number.isInteger(this.getNeighborPosition(positions[0][0]))) {
+                    // Only if there is a neighbor.
+                    positions[1] = [this.getNeighborPosition(positions[0][0])];
+                    positions[1].push(this.nextPositionInFace(positions[1][0]),
+                                      this.previousPositionInFace(positions[1][0]));
+                }
+                let vertices = []; // 2D array, element 0 is for current face, element 1 for neighbor if there is one..
+                for (let i = 0; i < positions.length; i++) {
                     vertices[i] = this.vector3sFromPositions(positions[i]);
                 }
 
@@ -546,7 +548,7 @@ class ConnectedSTL {
                 let intersectionPoint = vertices[0][0].clone().lerp(vertices[0][1], alpha);
 
                 let vertexToMove = [];
-                for (let i = 0; i < 2; i++) {
+                for (let i = 0; i < positions.length; i++) {
                     let secondIntersectionPoint = plane.intersectLine(new THREE.Line3(vertices[i][0], vertices[i][2]));
                     // Which vertex needs to be moved to the intersection
                     // so that the new face created won't need further
@@ -562,7 +564,7 @@ class ConnectedSTL {
                     }
                 }
 
-                for (let i = 0; i < 2; i++) {
+                for (let i = 0; i < positions.length; i++) {
                     // The intersectionPoint replaces the vertex from above.
                     this.setPointsInArray([intersectionPoint], this.positions, positions[i][vertexToMove[i]]);
                     splitPositions.add(this.keyForTrio(positions[i][vertexToMove[i]]));
@@ -577,6 +579,7 @@ class ConnectedSTL {
                 }
 
                 // Add to this.neighbors
+                // TODO: Fix this to support shapes that are non-manifold.
                 let newNeighborIndex = this.neighbors.length;
                 if (vertexToMove[0] == 1 && vertexToMove[1] == 1) {
                     this.neighbors.push(positions[1][0]/3,
@@ -610,7 +613,9 @@ class ConnectedSTL {
 
                 // Make the above assignments symmetric.
                 for (let i = newNeighborIndex; i < newNeighborIndex+6; i++) {
-                    this.neighbors[this.neighbors[i]] = i;
+                    if (Number.isInteger(this.neighbors[i])) {
+                        this.neighbors[this.neighbors[i]] = i;
+                    }
                 }
                 // Update the reverseIslands.
                 this.reverseIslands[this.faceFromPosition(this.positions.length-18)] =
@@ -776,7 +781,9 @@ class ConnectedSTL {
         // Make the above assignments symmetric.
         for (let i = 0; i < 2; i++) {
             for (let j = 0; j < 3; j++) {
-                this.neighbors[this.neighbors[positions[i][j]/3]] = positions[i][j]/3;
+                if (Number.isInteger(this.neighbors[positions[i][j]/3])) {
+                    this.neighbors[this.neighbors[positions[i][j]/3]] = positions[i][j]/3;
+                }
             }
         }
     }
@@ -864,11 +871,10 @@ class ConnectedSTL {
         // Find all the edges that are unconnected.
         let unconnectedEdges = new Set();
         for (let i = 0; i < this.neighbors.length; i++) {
-            if (!Number.isInteger(this.neighbors[i]) && this.reverseIsland[this.faceFromPosition(i*3)] === island) {
+            if (!Number.isInteger(this.neighbors[i]) && this.reverseIslands[this.faceFromPosition(i*3)] === island) {
                 unconnectedEdges.add(i*3);
             }
         }
-
         // Make the smallest triangles possible using unconnected
         // edges and vertices.
         while (unconnectedEdges.size > 0) {
@@ -882,7 +888,7 @@ class ConnectedSTL {
             for (let unconnectedVertex of unconnectedEdges) {
                 for (let vertex of [this.vector3FromPosition(unconnectedVertex),
                                     this.vector3FromPosition(this.nextPositionInFace(unconnectedVertex))]) {
-                    if (vertex in newFace) {
+                    if (vertex.equals(newFace[0]) || vertex.equals(newFace[1])) {
                         continue; // No degenerates.
                     }
                     let currentAngle = this.angle3(newFace[0], newFace[1], vertex);
@@ -895,12 +901,27 @@ class ConnectedSTL {
             newFace.push(smallestVertex);
             // Add the new face to the positions.
             for (let vertex of newFace) {
-                this.positions.push(vertex.a,
-                                    vertex.b,
-                                    vertex.c);
+                this.positions.push(vertex.x,
+                                    vertex.y,
+                                    vertex.z);
             }
             // Make the connection for this face.
             this.neighbors[unconnectedEdge/3] = (this.positions.length-9)/3;
+            // If we made an edge that connected to an unconnected
+            // edge, connect it.
+            unconnectedEdges.delete(unconnectedEdge);
+            for (let otherUnconnectedEdge of unconnectedEdges) {
+                for (let newFaceEdge = 0; newFaceEdge < 3; newFaceEdge++) {
+                    let newFaceEdgeEnd = (newFaceEdge+1) % 3;
+                    if (newFace[newFaceEdge   ].equals(this.vector3FromPosition(this.nextPositionInFace(otherUnconnectedEdge))) &&
+                        newFace[newFaceEdgeEnd].equals(this.vector3FromPosition(                        otherUnconnectedEdge) )) {
+                        // We can connect this.
+                        this.neighbors[unconnectedEdge/3] = otherUnconnectedEdge;
+                        this.neighbors[otherUnconnectedEdge/3] = unconnectedEdge;
+                        unconnectedEdges.delete(otherUnconnectedEdge);
+                    }
+                }
+            }
             this.reverseIslands[(this.positions.length-9)/9] = island;
         }
     }
@@ -985,9 +1006,11 @@ class ConnectedSTL {
                 let oldNeighborPosition = this.getNeighborPosition(oldPosition);
                 let newPosition = this.positionFromFaceEdge(newFaceIndex[oldFaceIndex],
                                                             oldEdgeIndex);
-                let newNeighborPosition = this.positionFromFaceEdge(newFaceIndex[this.faceFromPosition(oldNeighborPosition)],
-                                                                    this.edgeFromPosition(oldNeighborPosition));
-                newNeighbors[newPosition/3] = newNeighborPosition/3;
+                let newNeighborPosition = Number.isInteger(oldNeighborPosition) ?
+                    this.positionFromFaceEdge(newFaceIndex[this.faceFromPosition(oldNeighborPosition)],
+                                              this.edgeFromPosition(oldNeighborPosition))
+                    : null;
+                newNeighbors[newPosition/3] = Number.isInteger(newNeighborPosition) ? newNeighborPosition/3 : newNeighborPosition;
             }
         }
 

@@ -113,14 +113,19 @@ describe("ConnectedSTL", function() {
             this.timeout(40000);
             testFile("DINOSAUR_JUMP", 1);
         });
-
+*/
         it("Non-manifold object", function () {
             let stl = fs.readFileSync("test/tetrahedron_non_manifold.stl", {encoding: "binary"});
             let geometry = new STLLoader().parse(stl);
             let connectedBufferGeometry = new ConnectedSTL().fromBufferGeometry(geometry);
-            expect(connectedBufferGeometry).to.be.null;
+            //expect(connectedBufferGeometry).to.be.null;
+            connectedBufferGeometry.fixHoles();
+            let mesh = new THREE.Mesh(connectedBufferGeometry.bufferGeometry());
+            let obj = new THREE.Object3D();
+            obj.add(mesh);
+            fs.writeFileSync("tetrahedron_non_manifold_repaired.stl", new Buffer(new STLExporter().parse(obj)), 'ascii');
         });
-
+/*
         it("dino jump just merge", function () {
             this.timeout(30000);
             let stl = fs.readFileSync("test/DINOSAUR_JUMP.stl", {encoding: "binary"});
@@ -135,6 +140,7 @@ describe("ConnectedSTL", function() {
             fs.writeFileSync("DINOSAUR_JUMP_merged.stl", new Buffer(new STLExporter().parse(obj)), 'ascii');
         });
 */
+        /*
         it("retriangle", function () {
             this.timeout(30000);
             let stl = fs.readFileSync("test/lungo.stl", {encoding: "binary"});
@@ -148,5 +154,6 @@ describe("ConnectedSTL", function() {
             obj.add(mesh);
             fs.writeFileSync("lungo_retriangle.stl", new Buffer(new STLExporter().parse(obj)), 'ascii');
         });
+*/
     });
 });

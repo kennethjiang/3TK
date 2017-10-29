@@ -858,6 +858,63 @@ class ConnectedSTL {
         return edgesRotated;
     }
 
+    // Make the shape manifold by connecting edges that aren't
+    // connected.
+    fixHolesInIsland(island) {
+        // Find all the edges that are unconnected.
+        let unconnectedEdges = new Set();
+        for (let i = 0; i < this.neighbors.length; i++) {
+            if (!Number.isInteger(this.neighbors[i]) && this.reverseIsland[this.faceFromPosition(i*3)] === island) {
+                unconnectedEdges.add(i*3);
+            }
+        }
+
+        // Make the smallest triangles possible using unconnected
+        // edges and vertices.
+        while (unconnectedEdges.size > 0) {
+            let unconnectedEdge = unconnectedEdges.values().next().value;
+            // First two vertices in the new triangle.
+            let newFace = [this.vector3FromPosition(this.nextPositionInFace(unconnectedEdge)),
+                           this.vector3FromPosition(unconnectedEdge)];
+            let smallestAngle = Infinity;
+            let smallestVertex = null;
+            // Find the vertex that makes the smallest angle for the new face.
+            for (let unconnectedVertex of unconnectedEdges) {
+                for (let vertex of [this.vector3FromPosition(unconnectedVertex),
+                                    this.vector3FromPosition(this.nextPositionInFace(unconnectedVertex))]) {
+                    if (vertex in newFace) {
+                        continue; // No degenerates.
+                    }
+                    let currentAngle = this.angle3(newFace[0], newFace[1], vertex);
+                    if (smallestAngle > currentAngle) {
+                        smallestAngle = currentAngle;
+                        smallestVertex = vertex;
+                    }
+                }
+            }
+            newFace.push(smallestVertex);
+            // Add the new face to the positions.
+            for (let vertex of newFace) {
+                this.positions.push(vertex.a,
+                                    vertex.b,
+                                    vertex.c);
+            }
+            // Make the connection for this face.
+            this.neighbors[unconnectedEdge/3] = (this.positions.length-9)/3;
+            this.reverseIslands[(this.positions.length-9)/9] = island;
+        }
+    }
+
+    fixHoles() {
+        let seenIslands = new Set();
+        for (let island of this.reverseIslands) {
+            if (!seenIslands.has(island)) {
+                this.fixHolesInIsland(island);
+            }
+            seenIslands.add(island);
+        }
+    }
+
     // Reconnect faces with a normal of 0 due to a 180 degree angle so
     // that the output will have only faces with normal non-zero.  We
     // check if the normal is 0 as a 32-bit float.

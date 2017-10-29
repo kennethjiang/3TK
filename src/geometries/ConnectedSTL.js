@@ -357,7 +357,7 @@ class ConnectedSTL {
             }
             for (let edgeIndex = 0; edgeIndex < 3; edgeIndex++) {
                 let neighbor = faces[faceIndex].neighbors[edgeIndex];
-                this.neighbors[faceIndex*3 + edgeIndex] = (neighbor === null ? null : neighbor / 3);
+                this.neighbors[faceIndex*3 + edgeIndex] = (!Number.isInteger(neighbor) ? neighbor : neighbor / 3);
             }
         }
         return true;
@@ -719,7 +719,7 @@ class ConnectedSTL {
     removeDegenerates0Angle(faces) {
         let degeneratesRemoved = 0;
         for (let faceIndex of faces) {
-            if (this.reverseIslands[faceIndex] === null) {
+            if (!Number.isInteger(this.reverseIslands[faceIndex])) {
                 // Already going to be removed.
                 continue;
             }
@@ -794,10 +794,9 @@ class ConnectedSTL {
         let edgesRotated = 0;
         let previousEdgesRotated;
         do {
-            console.log("try");
             previousEdgesRotated = edgesRotated;
             for (let faceIndex of faces) {
-                if (this.reverseIslands[faceIndex] === null) {
+                if (!Number.isInteger(this.reverseIslands[faceIndex])) {
                     // Already going to be removed.
                     continue;
                 }
@@ -851,8 +850,6 @@ class ConnectedSTL {
                         // Mustn't flip the face around.
                         continue;
                     }
-                    console.log("rotating");
-                    console.log(vertices);
                     this.rotateEdge(positions[0][0]);
                     edgesRotated++;
                 }
@@ -867,7 +864,7 @@ class ConnectedSTL {
     removeDegenerates180Angle(faces, equalNormals = function(x, y) { return x.equals(y); }) {
         let degeneratesRemoved = 0;
         for (let faceIndex of faces) {
-            if (this.reverseIslands[faceIndex] === null ||
+            if (!Number.isInteger(this.reverseIslands[faceIndex]) ||
                 this.isFaceDegenerate(faceIndex)) {
                 // Already going to be removed or is degenerate.
                 continue;

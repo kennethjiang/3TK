@@ -9,8 +9,8 @@ describe("ConnectedSTL", function() {
             // Test that the number of shapes is as expected.
             let stl = fs.readFileSync("test/" + filename + ".stl", {encoding: "binary"});
             let geometry = new STLLoader().parse(stl);
-            let connectedBufferGeometry = new ConnectedSTL().fromBufferGeometry(geometry);
-            let newGeometries = connectedBufferGeometry.isolatedBufferGeometries(geometry);
+            let connectedSTL = new ConnectedSTL().fromBufferGeometry(geometry);
+            let newGeometries = connectedSTL.isolatedBufferGeometries(geometry);
             expect(newGeometries.length).to.equal(expectedGeometriesCount);
             if (writeShapes) {
                 for (let i = 0; i < newGeometries.length; i++) {
@@ -25,30 +25,30 @@ describe("ConnectedSTL", function() {
             // neighbors array is maintained correctly.
             geometry.computeBoundingBox();
             let boundingBox = geometry.boundingBox;
-            let oldFaceCount = connectedBufferGeometry.positions.length/9;
-            let splits = connectedBufferGeometry.splitFaces(new THREE.Plane(
+            let oldFaceCount = connectedSTL.positions.length/9;
+            let splits = connectedSTL.splitFaces(new THREE.Plane(
                 new THREE.Vector3(1,0,0), -((boundingBox.max.x*2 + boundingBox.min.x)/3)));
 
             if (writeShapes) {
-                let mesh = new THREE.Mesh(connectedBufferGeometry.bufferGeometry());
+                let mesh = new THREE.Mesh(connectedSTL.bufferGeometry());
                 let obj = new THREE.Object3D();
                 obj.add(mesh);
                 fs.writeFileSync(filename + "_split.stl", new Buffer(new STLExporter().parse(obj)), 'ascii');
             }
             expect(splits.size).to.be.greaterThan(0);
-            let newFaceCount = connectedBufferGeometry.positions.length/9;
+            let newFaceCount = connectedSTL.positions.length/9;
             // Splitting an edge affects two faces.
             expect(newFaceCount).to.be.greaterThan(oldFaceCount);
-            let oldNeighbors = connectedBufferGeometry.neighbors.slice(0);
-            connectedBufferGeometry.neighbors = [];
-            connectedBufferGeometry.reverseIslands = [];
-            expect(connectedBufferGeometry.findNeighbors()).to.be.true;
-            let newNeighbors = connectedBufferGeometry.neighbors.slice(0);
+            let oldNeighbors = connectedSTL.neighbors.slice(0);
+            connectedSTL.neighbors = [];
+            connectedSTL.reverseIslands = [];
+            expect(connectedSTL.findNeighbors()).to.be.true;
+            let newNeighbors = connectedSTL.neighbors.slice(0);
             // neighbors array should have be updated correctly during split.
             expect(newNeighbors).to.have.ordered.members(oldNeighbors);
 
             // Spliting should not affect the number of shapes.
-            newGeometries = connectedBufferGeometry.isolatedBufferGeometries(geometry);
+            newGeometries = connectedSTL.isolatedBufferGeometries(geometry);
             if (writeShapes) {
                 for (let i = 0; i < newGeometries.length; i++) {
                     let mesh = new THREE.Mesh(newGeometries[i]);
@@ -60,9 +60,9 @@ describe("ConnectedSTL", function() {
             expect(newGeometries.length).to.equal(expectedGeometriesCount);
 
             // Merging faces should not affect the number of shapes.
-            connectedBufferGeometry.mergeFaces();
+            connectedSTL.mergeFaces();
             if (writeShapes) {
-                let mesh = new THREE.Mesh(connectedBufferGeometry.bufferGeometry());
+                let mesh = new THREE.Mesh(connectedSTL.bufferGeometry());
                 let obj = new THREE.Object3D();
                 obj.add(mesh);
                 fs.writeFileSync(filename + "_merged.stl", new Buffer(new STLExporter().parse(obj)), 'ascii');
@@ -70,17 +70,17 @@ describe("ConnectedSTL", function() {
 
             expect(newGeometries.length).to.equal(expectedGeometriesCount);
 
-            connectedBufferGeometry.collapse(new THREE.Plane(
+            connectedSTL.collapse(new THREE.Plane(
                 new THREE.Vector3(1,0,0), -((boundingBox.max.x + boundingBox.min.x*2)/3)));
-            connectedBufferGeometry.mergeFaces();
+            connectedSTL.mergeFaces();
             if (writeShapes) {
-                let mesh = new THREE.Mesh(connectedBufferGeometry.bufferGeometry());
+                let mesh = new THREE.Mesh(connectedSTL.bufferGeometry());
                 let obj = new THREE.Object3D();
                 obj.add(mesh);
                 fs.writeFileSync(filename + "_collapsed.stl", new Buffer(new STLExporter().parse(obj)), 'ascii');
             }
         }
-/*
+
         it("Simple tetrahedron", function() {
             testFile("tetrahedron", 1);
         });
@@ -113,47 +113,46 @@ describe("ConnectedSTL", function() {
             this.timeout(40000);
             testFile("DINOSAUR_JUMP", 1);
         });
-*/
+
         it("Non-manifold object", function () {
-            let stl = fs.readFileSync("test/tetrahedron_non_manifold.stl", {encoding: "binary"});
+            this.timeout(0);
+            let stl = fs.readFileSync("test/egg.stl", {encoding: "binary"});
             let geometry = new STLLoader().parse(stl);
-            let connectedBufferGeometry = new ConnectedSTL().fromBufferGeometry(geometry);
-            //expect(connectedBufferGeometry).to.be.null;
-            connectedBufferGeometry.fixHoles();
-            let mesh = new THREE.Mesh(connectedBufferGeometry.bufferGeometry());
+            let connectedSTL = new ConnectedSTL().fromBufferGeometry(geometry);
+            //expect(connectedSTL).to.be.null;
+            connectedSTL.fixHoles();
+            let mesh = new THREE.Mesh(connectedSTL.bufferGeometry());
             let obj = new THREE.Object3D();
             obj.add(mesh);
-            fs.writeFileSync("tetrahedron_non_manifold_repaired.stl", new Buffer(new STLExporter().parse(obj)), 'ascii');
+            fs.writeFileSync("egg_repaired.stl", new Buffer(new STLExporter().parse(obj)), 'ascii');
         });
-/*
+
         it("dino jump just merge", function () {
             this.timeout(30000);
             let stl = fs.readFileSync("test/DINOSAUR_JUMP.stl", {encoding: "binary"});
             let geometry = new STLLoader().parse(stl);
-            let connectedBufferGeometry = new ConnectedSTL().fromBufferGeometry(geometry);
-            connectedBufferGeometry.mergeFaces(function (v0, v1) {
+            let connectedSTL = new ConnectedSTL().fromBufferGeometry(geometry);
+            connectedSTL.mergeFaces(function (v0, v1) {
                 return v0.angleTo(v1) < Math.PI/180*20;
             });
-            let mesh = new THREE.Mesh(connectedBufferGeometry.bufferGeometry());
+            let mesh = new THREE.Mesh(connectedSTL.bufferGeometry());
             let obj = new THREE.Object3D();
             obj.add(mesh);
             fs.writeFileSync("DINOSAUR_JUMP_merged.stl", new Buffer(new STLExporter().parse(obj)), 'ascii');
         });
-*/
-        /*
+
         it("retriangle", function () {
             this.timeout(30000);
             let stl = fs.readFileSync("test/lungo.stl", {encoding: "binary"});
             let geometry = new STLLoader().parse(stl);
-            let connectedBufferGeometry = new ConnectedSTL().fromBufferGeometry(geometry);
-            connectedBufferGeometry.mergeFaces();
-            connectedBufferGeometry.retriangle(
-                Array.from(new Array(connectedBufferGeometry.positions.length/9).keys()));
-            let mesh = new THREE.Mesh(connectedBufferGeometry.bufferGeometry());
+            let connectedSTL = new ConnectedSTL().fromBufferGeometry(geometry);
+            connectedSTL.mergeFaces();
+            connectedSTL.retriangle(
+                Array.from(new Array(connectedSTL.positions.length/9).keys()));
+            let mesh = new THREE.Mesh(connectedSTL.bufferGeometry());
             let obj = new THREE.Object3D();
             obj.add(mesh);
             fs.writeFileSync("lungo_retriangle.stl", new Buffer(new STLExporter().parse(obj)), 'ascii');
         });
-*/
     });
 });

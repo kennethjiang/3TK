@@ -896,26 +896,30 @@ class ConnectedSTL {
                 return otherNormal.angleTo(triangle.set(a, b, c).normal());
             }
         })();
+        let a = new THREE.Vector3();
+        let b = new THREE.Vector3();
+        let c = new THREE.Vector3();
         while (unconnectedEdges.size > 0) {
             // Find the best new face to add to the object.
             let smallestScore = Infinity;
             let smallestFace = null;
             for (let unconnectedEdge of unconnectedEdges.values()) {
                 // First two vertices in the new triangle.
-                let a = this.vector3FromPosition(this.nextPositionInFace(unconnectedEdge));
-                let b = this.vector3FromPosition(unconnectedEdge);
+                a = this.vector3FromPosition(this.nextPositionInFace(unconnectedEdge), a);
+                b = this.vector3FromPosition(unconnectedEdge, b);
                 let unconnectedEdgeNormal = this.faceNormal(this.faceFromPosition(unconnectedEdge));
                 // Find all possible triangles connecting to this edge.
                 for (let unconnectedVertex of unconnectedEdges) {
-                    for (let c of [this.vector3FromPosition(unconnectedVertex),
-                                   this.vector3FromPosition(this.nextPositionInFace(unconnectedVertex))]) {
+                    for (let cPos of [unconnectedVertex,
+                                      this.nextPositionInFace(unconnectedVertex)]) {
+                        c = this.vector3FromPosition(cPos, c);
                         if (c.equals(a) || c.equals(b)) {
                             continue; // No degenerates.
                         }
                         let currentScore = score(a, b, c, unconnectedEdgeNormal);
                         if (smallestScore > currentScore) {
                             smallestScore = currentScore;
-                            smallestFace = [a, b, c];
+                            smallestFace = [a.clone(), b.clone(), c.clone()];
                         }
                     }
                 }

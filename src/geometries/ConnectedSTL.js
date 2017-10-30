@@ -899,6 +899,10 @@ class ConnectedSTL {
         let a = new THREE.Vector3();
         let b = new THREE.Vector3();
         let c = new THREE.Vector3();
+        let newStart = new THREE.Vector3();
+        let newEnd = new THREE.Vector3();
+        let otherStart = new THREE.Vector3();
+        let otherEnd = new THREE.Vector3();
         while (unconnectedEdges.size > 0) {
             // Find the best new face to add to the object.
             let smallestScore = Infinity;
@@ -920,6 +924,7 @@ class ConnectedSTL {
                         if (smallestScore > currentScore) {
                             smallestScore = currentScore;
                             smallestFace = [a.clone(), b.clone(), c.clone()];
+                            console.log(smallestFace);
                         }
                     }
                 }
@@ -938,10 +943,10 @@ class ConnectedSTL {
             // Connect all unconnectedEdges that can be connected.
             for (let newUnconnectedEdge of [newPosition, newPosition+3, newPosition+6]) {
                 for (let otherUnconnectedEdge of unconnectedEdges) {
-                    let newStart = this.vector3FromPosition(newUnconnectedEdge);
-                    let newEnd = this.vector3FromPosition(this.nextPositionInFace(newUnconnectedEdge));
-                    let otherStart = this.vector3FromPosition(otherUnconnectedEdge);
-                    let otherEnd = this.vector3FromPosition(this.nextPositionInFace(otherUnconnectedEdge));
+                    newStart = this.vector3FromPosition(newUnconnectedEdge, newStart);
+                    newEnd = this.vector3FromPosition(this.nextPositionInFace(newUnconnectedEdge), newEnd);
+                    otherStart = this.vector3FromPosition(otherUnconnectedEdge, otherStart);
+                    otherEnd = this.vector3FromPosition(this.nextPositionInFace(otherUnconnectedEdge), otherEnd);
                     if (newStart.equals(otherEnd) && newEnd.equals(otherStart)) {
                         // We can connect this.
                         this.neighbors[newUnconnectedEdge/3] = otherUnconnectedEdge/3;

@@ -893,7 +893,11 @@ class ConnectedSTL {
         let score = (() => {
             let triangle = new THREE.Triangle();
             return (a, b, c, otherNormal) => {
-                return otherNormal.angleTo(triangle.set(a, b, c).normal());
+                let normal = triangle.set(a, b, c).normal();
+                // This is similar to angleTo if all vectors are
+                // length 1, which they are.
+                return normal.distanceToSquared(otherNormal);
+                //return otherNormal.angleTo(normal);
             }
         })();
         let a = new THREE.Vector3();
@@ -924,7 +928,6 @@ class ConnectedSTL {
                         if (smallestScore > currentScore) {
                             smallestScore = currentScore;
                             smallestFace = [a.clone(), b.clone(), c.clone()];
-                            console.log(smallestFace);
                         }
                     }
                 }

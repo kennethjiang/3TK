@@ -890,8 +890,8 @@ class ConnectedSTL {
             }
         }
         // Get the score of a triangle with these sides.  Lower is better.
-        let score = (a, b, c, position) => {
-            return this.faceNormal(this.faceFromPosition(position)).angleTo(new THREE.Triangle(a, b, c).normal());
+        let score = (a, b, c, otherNormal) => {
+            return otherNormal.angleTo(new THREE.Triangle(a, b, c).normal());
         }
         while (unconnectedEdges.size > 0) {
             // Find the best new face to add to the object.
@@ -901,6 +901,7 @@ class ConnectedSTL {
                 // First two vertices in the new triangle.
                 let a = this.vector3FromPosition(this.nextPositionInFace(unconnectedEdge));
                 let b = this.vector3FromPosition(unconnectedEdge);
+                let unconnectedEdgeNormal = this.faceNormal(this.faceFromPosition(unconnectedEdge));
                 // Find all possible triangles connecting to this edge.
                 for (let unconnectedVertex of unconnectedEdges) {
                     for (let c of [this.vector3FromPosition(unconnectedVertex),
@@ -908,7 +909,7 @@ class ConnectedSTL {
                         if (c.equals(a) || c.equals(b)) {
                             continue; // No degenerates.
                         }
-                        let currentScore = score(a, b, c, unconnectedEdge);
+                        let currentScore = score(a, b, c, unconnectedEdgeNormal);
                         if (smallestScore > currentScore) {
                             smallestScore = currentScore;
                             smallestFace = [a, b, c];

@@ -16,6 +16,11 @@ class ConnectedSTL {
         // same island number are part of the same shape.  faces that
         // have null island are degenerate and not part of any shape.
         this.reverseIslands = [];
+
+        // static variables needed temporarily for methods below.
+        this.faceNormalVector3s = [new THREE.Vector3(),
+                                   new THREE.Vector3(),
+                                   new THREE.Vector3()];
     }
 
     clone() {
@@ -74,9 +79,11 @@ class ConnectedSTL {
     positionFromFaceEdge(faceIndex, edgeIndex) {
         return this.positionFromFace(faceIndex) + 3*edgeIndex;
     }
-    // Given index in this.positions, return a THREE.Vector3 of that point.
-    vector3FromPosition(position) {
-        return new THREE.Vector3().fromArray(this.positions, position);
+    // Given index in this.positions, return a THREE.Vector3 of that
+    // point.  Re-use the provided vector3 if there is one.
+    vector3FromPosition(position, vector3) {
+        vector3 = vector3 || new THREE.Vector3();
+        return vector3.fromArray(this.positions, position);
     }
 
     // Gets the position of an adjacent vertex in the face.  If
@@ -450,9 +457,14 @@ class ConnectedSTL {
         return [p1, p2, p3];
     }
 
-    // Gets all Vector3s for the positionList
-    vector3sFromPositions(positionList) {
-        return positionList.map(p => this.vector3FromPosition(p));
+    // Gets all Vector3s for the positionList.  Use the vector3s in
+    // the list if provided.
+    vector3sFromPositions(positionList, vector3List = []) {
+        let ret = [];
+        for (let i = 0; i < positionList.length; i++) {
+            ret.push(this.vector3FromPosition(positionList[i], vector3List[i]));
+        }
+        return ret;
     }
 
     // Returns the neighbor edge position of a position.
@@ -475,9 +487,8 @@ class ConnectedSTL {
 
     // Returns the unit normal of a triangular face.
     faceNormal(faceIndex) {
-        let [p0, p1, p2] =
-            this.positionsFromFace(faceIndex, 0);
-        return new THREE.Triangle(...this.vector3sFromPositions([p0, p1, p2])).normal();
+        let positions = this.positionsFromFace(faceIndex, 0);
+        return new THREE.Triangle(...this.vector3sFromPositions(positions, this.faceNormalVector3s)).normal();
     }
 
     // Split all edges in this geometry so that there are no edges

@@ -890,9 +890,12 @@ class ConnectedSTL {
             }
         }
         // Get the score of a triangle with these sides.  Lower is better.
-        let score = (a, b, c, otherNormal) => {
-            return otherNormal.angleTo(new THREE.Triangle(a, b, c).normal());
-        }
+        let score = (() => {
+            let triangle = new THREE.Triangle();
+            return (a, b, c, otherNormal) => {
+                return otherNormal.angleTo(triangle.set(a, b, c).normal());
+            }
+        })();
         while (unconnectedEdges.size > 0) {
             // Find the best new face to add to the object.
             let smallestScore = Infinity;

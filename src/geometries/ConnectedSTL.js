@@ -866,71 +866,104 @@ class ConnectedSTL {
     }
 
     // Make the shape manifold by connecting edges that aren't
-    // connected.
-    fixHolesInIsland(island) {
+    // connected.  If island is null, ignore islands and rebuild at
+    // the end.
+    fixHoles(island = null) {
         // Find all the edges that are unconnected.
         let unconnectedEdges = new Set();
         for (let i = 0; i < this.neighbors.length; i++) {
-            if (!Number.isInteger(this.neighbors[i]) && this.reverseIslands[this.faceFromPosition(i*3)] === island) {
+            if (!Number.isInteger(this.neighbors[i]) &&
+                (!Number.isInteger(island) ||
+                 this.reverseIslands[this.faceFromPosition(i*3)] == island)) {
                 unconnectedEdges.add(i*3);
             }
         }
-        // Make the smallest triangles possible using unconnected
-        // edges and vertices.
+        // Get the score of a triangle with these sides.  Lower is better.
+        let score = (a, b, c, position) => {
+            return this.faceNormal(this.faceFromPosition(position)).angleTo(new THREE.Triangle(a, b, c).normal());
+        }
         while (unconnectedEdges.size > 0) {
-            let unconnectedEdge = unconnectedEdges.values().next().value;
-            // First two vertices in the new triangle.
-            let newFace = [this.vector3FromPosition(this.nextPositionInFace(unconnectedEdge)),
-                           this.vector3FromPosition(unconnectedEdge)];
-            let smallestAngle = Infinity;
-            let smallestVertex = null;
-            // Find the vertex that makes the smallest angle for the new face.
-            for (let unconnectedVertex of unconnectedEdges) {
-                for (let vertex of [this.vector3FromPosition(unconnectedVertex),
-                                    this.vector3FromPosition(this.nextPositionInFace(unconnectedVertex))]) {
-                    if (vertex.equals(newFace[0]) || vertex.equals(newFace[1])) {
-                        continue; // No degenerates.
-                    }
-                    let currentAngle = this.angle3(newFace[0], newFace[1], vertex);
-                    if (smallestAngle > currentAngle) {
-                        smallestAngle = currentAngle;
-                        smallestVertex = vertex;
+            // Find the best new face to add to the object.
+            let smallestScore = Infinity;
+            let smallestFace = null;
+            for (let unconnectedEdge of unconnectedEdges.values()) {
+                // First two vertices in the new triangle.
+                let a = this.vector3FromPosition(this.nextPositionInFace(unconnectedEdge));
+                let b = this.vector3FromPosition(unconnectedEdge);
+                // Find all possible triangles connecting to this edge.
+                for (let unconnectedVertex of unconnectedEdges) {
+                    for (let c of [this.vector3FromPosition(unconnectedVertex),
+                                   this.vector3FromPosition(this.nextPositionInFace(unconnectedVertex))]) {
+                        if (c.equals(a) || c.equals(b)) {
+                            continue; // No degenerates.
+                        }
+                        let currentScore = score(a, b, c, unconnectedEdge);
+                        if (smallestScore > currentScore) {
+                            smallestScore = currentScore;
+                            smallestFace = [a, b, c];
+                        }
                     }
                 }
             }
-            newFace.push(smallestVertex);
             // Add the new face to the positions.
-            for (let vertex of newFace) {
+            let newPosition = this.positions.length;
+            for (let vertex of smallestFace) {
                 this.positions.push(vertex.x,
                                     vertex.y,
                                     vertex.z);
             }
-            // Make the connection for this face.
-            this.neighbors[unconnectedEdge/3] = (this.positions.length-9)/3;
-            // If we made an edge that connected to an unconnected
-            // edge, connect it.
-            unconnectedEdges.delete(unconnectedEdge);
-            for (let otherUnconnectedEdge of unconnectedEdges) {
-                for (let newFaceEdge = 0; newFaceEdge < 3; newFaceEdge++) {
-                    let newFaceEdgeEnd = (newFaceEdge+1) % 3;
-                    if (newFace[newFaceEdge   ].equals(this.vector3FromPosition(this.nextPositionInFace(otherUnconnectedEdge))) &&
-                        newFace[newFaceEdgeEnd].equals(this.vector3FromPosition(                        otherUnconnectedEdge) )) {
+            // Add all the edges to the The other two edges of the new face are unconnected.
+            unconnectedEdges.add(newPosition);
+            unconnectedEdges.add(newPosition+3);
+            unconnectedEdges.add(newPosition+6);
+            // Connect all unconnectedEdges that can be connected.
+            for (let newUnconnectedEdge of [newPosition, newPosition+3, newPosition+6]) {
+                for (let otherUnconnectedEdge of unconnectedEdges) {
+                    let newStart = this.vector3FromPosition(newUnconnectedEdge);
+                    let newEnd = this.vector3FromPosition(this.nextPositionInFace(newUnconnectedEdge));
+                    let otherStart = this.vector3FromPosition(otherUnconnectedEdge);
+                    let otherEnd = this.vector3FromPosition(this.nextPositionInFace(otherUnconnectedEdge));
+                    if (newStart.equals(otherEnd) && newEnd.equals(otherStart)) {
                         // We can connect this.
-                        this.neighbors[unconnectedEdge/3] = otherUnconnectedEdge;
-                        this.neighbors[otherUnconnectedEdge/3] = unconnectedEdge;
+                        this.neighbors[newUnconnectedEdge/3] = otherUnconnectedEdge/3;
+                        this.neighbors[otherUnconnectedEdge/3] = newUnconnectedEdge/3;
                         unconnectedEdges.delete(otherUnconnectedEdge);
+                        unconnectedEdges.delete(newUnconnectedEdge);
                     }
                 }
             }
             this.reverseIslands[(this.positions.length-9)/9] = island;
         }
+        if (!Number.isInteger(island)) {
+            // Need to recreate all the islands.
+            this.reverseIslands = [];
+            let currentRoot = 0;
+            let visit = (faceIndex, root) => {
+                if (!Number.isInteger(this.reverseIslands[faceIndex])) {
+                    this.reverseIslands[faceIndex] = root;
+                    for (let pos = faceIndex*9; pos < (faceIndex+1)*9; pos+=3) {
+                        visit(this.faceFromPosition(this.getNeighborPosition(pos)), root);
+                    }
+                }
+            }
+            for (let faceIndex = 0; faceIndex < this.positions.length/9; faceIndex++) {
+                if (!Number.isInteger(this.reverseIslands[faceIndex])) {
+                    // This is not yet part of an island so add it to
+                    // a new island and visit all neighbors
+                    // recursively.
+                    visit(faceIndex, currentRoot);
+                    currentRoot++;
+                }
+            }
+        }
     }
 
-    fixHoles() {
+    // Fix holes without connecting between islands.
+    fixHolesByIsland() {
         let seenIslands = new Set();
         for (let island of this.reverseIslands) {
             if (!seenIslands.has(island)) {
-                this.fixHolesInIsland(island);
+                this.fixHoles(island);
             }
             seenIslands.add(island);
         }

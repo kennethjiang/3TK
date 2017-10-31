@@ -141,18 +141,17 @@ describe("ConnectedSTL", function() {
             fs.writeFileSync("DINOSAUR_JUMP_merged.stl", new Buffer(new STLExporter().parse(obj)), 'ascii');
         });
 
-        it("retriangle", function () {
+        it("dino jump retriangle", function () {
             this.timeout(30000);
-            let stl = fs.readFileSync("test/lungo.stl", {encoding: "binary"});
+            let stl = fs.readFileSync("test/DINOSAUR_JUMP.stl", {encoding: "binary"});
             let geometry = new STLLoader().parse(stl);
             let connectedSTL = new ConnectedSTL().fromBufferGeometry(geometry);
-            connectedSTL.mergeFaces();
             connectedSTL.retriangle(
                 Array.from(new Array(connectedSTL.positions.length/9).keys()));
             let mesh = new THREE.Mesh(connectedSTL.bufferGeometry());
             let obj = new THREE.Object3D();
             obj.add(mesh);
-            fs.writeFileSync("lungo_retriangle.stl", new Buffer(new STLExporter().parse(obj)), 'ascii');
+            fs.writeFileSync("DINOSAUR_JUMP_retriangle.stl", new Buffer(new STLExporter().parse(obj)), 'ascii');
         });
     });
 });

@@ -910,7 +910,7 @@ class ConnectedSTL {
         while (unconnectedEdges.size > 0) {
             // Find the best new face to add to the object.
             let smallestScore = Infinity;
-            let smallestFace = null;
+            let smallestABC = null;
             for (let unconnectedEdge of unconnectedEdges.values()) {
                 // First two vertices in the new triangle.
                 a = this.vector3FromPosition(this.nextPositionInFace(unconnectedEdge), a);
@@ -927,14 +927,14 @@ class ConnectedSTL {
                         let currentScore = score(a, b, c, unconnectedEdgeNormal);
                         if (smallestScore > currentScore) {
                             smallestScore = currentScore;
-                            smallestFace = [a.clone(), b.clone(), c.clone()];
+                            smallestABC = [this.nextPositionInFace(unconnectedEdge), unconnectedEdge, cPos];
                         }
                     }
                 }
             }
             // Add the new face to the positions.
             let newPosition = this.positions.length;
-            for (let vertex of smallestFace) {
+            for (let vertex of this.vector3sFromPositions(smallestABC, [a, b, c])) {
                 this.positions.push(vertex.x,
                                     vertex.y,
                                     vertex.z);

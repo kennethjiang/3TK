@@ -71,8 +71,8 @@ describe("ConnectedSTL", function() {
             expect(newGeometries.length).to.equal(expectedGeometriesCount);
 
             connectedSTL.collapse(new THREE.Plane(
-                new THREE.Vector3(1,0,0), -((boundingBox.max.x + boundingBox.min.x*2)/3)));
-            connectedSTL.mergeFaces();
+                new THREE.Vector3(1,0,0), -((boundingBox.max.x + boundingBox.min.x*3)/4)));
+            //connectedSTL.mergeFaces();
             if (writeShapes) {
                 let mesh = new THREE.Mesh(connectedSTL.bufferGeometry());
                 let obj = new THREE.Object3D();

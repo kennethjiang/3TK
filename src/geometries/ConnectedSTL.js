@@ -685,6 +685,9 @@ class ConnectedSTL {
                     // Test if moving the point would affect any face normals.
                     do {
                         currentPosition = this.getNeighborPosition(this.nextPositionInFace(currentPosition));
+                        if (!Number.isInteger(currentPosition)) {
+                            break;
+                        }
                         let nextPosition = this.nextPositionInFace(currentPosition);
                         let thirdPosition = this.nextPositionInFace(nextPosition);
                         let neighborVertices = this.vector3sFromPositions([currentPosition,
@@ -1066,7 +1069,8 @@ class ConnectedSTL {
                 let oldNeighborPosition = this.getNeighborPosition(oldPosition);
                 let newPosition = this.positionFromFaceEdge(newFaceIndex[oldFaceIndex],
                                                             oldEdgeIndex);
-                let newNeighborPosition = Number.isInteger(oldNeighborPosition) ?
+                let newNeighborPosition = (Number.isInteger(oldNeighborPosition) &&
+                                           Number.isInteger(newFaceIndex[this.faceFromPosition(oldNeighborPosition)])) ?
                     this.positionFromFaceEdge(newFaceIndex[this.faceFromPosition(oldNeighborPosition)],
                                               this.edgeFromPosition(oldNeighborPosition))
                     : null;

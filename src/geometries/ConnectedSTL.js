@@ -179,7 +179,6 @@ class ConnectedSTL {
                 'degenerate': degenerate,
                 // At first, each face is an island by itself.  Later, we'll join faces.
                 'island': degenerate ? null : faceIndex,
-                // The below elements are only valid if faces[faceIndex].island = faceIndex;
                 // The rank for the union-join algorithm on islands.
                 'rank': degenerate ? null : 0
             };
@@ -688,6 +687,25 @@ class ConnectedSTL {
         let nextVertex = new THREE.Vector3();
         // All faces that are on the split are diconnected from their neighbors.
         for (let faceIndex = 0; faceIndex < this.positions.length/9; faceIndex++) {
+            {
+                let positions = this.positionsFromFace(faceIndex, 0);
+                let vertices = this.vector3sFromPositions(positions);
+                let distances = [];
+                for (let i = 0; i < 3; i++) {
+                    if (splitPositions.has(this.keyForTrio(positions[i]))) {
+                        distances.push(0);
+                    } else {
+                        distances.push(plane.distanceToPoint(vertices[i]));
+                    }
+                }
+                if (distances[0] == 0 && distances[1] == 0 && distances[2] == 0) {
+                    this.reverseIslands[faceIndex] == null;
+                    continue;  // No need to continue.
+                } else if (distances[0] <=0 && distances[1] <= 0 && distances[2] <= 0) {
+                    this.reverseIslands[faceIndex] *= -1;
+                    this.reverseIslands[faceIndex]--;
+                }
+            }
             for (let vertexIndex = 0; vertexIndex < 3; vertexIndex++) {
                 let position = this.positionFromFaceEdge(faceIndex, vertexIndex);
                 let nextPosition = this.nextPositionInFace(position);
@@ -697,20 +715,6 @@ class ConnectedSTL {
                     // This edge is on the split.
                     splitEdges.add(position);
                 }
-                // Faces on negative side are put in new islands.
-                // Faces exactly on the split are removed.
-                let previousVertex = this.vector3FromPosition(previousPosition);
-                let distanceToPlane = plane.distanceToPoint(previousVertex);
-                if (splitEdges.has(position) &&
-                    (splitPositions.has(this.keyForTrio(previousPosition)) ||
-                     distanceToPlane == 0)) {
-                    this.reverseIslands[faceIndex] = null;
-                } else if (distanceToPlane < 0) {
-                    // Put each side of the split into a different island.
-                    // Make all faces on the negative side negative.
-                    this.reverseIslands[faceIndex] *= -1;
-                    this.reverseIslands[faceIndex]--;
-                }
             }
         }
         this.deleteDegenerates();
@@ -718,7 +722,6 @@ class ConnectedSTL {
         for (let island of this.reverseIslands) {
             if (!seenIslands.has(island)) {
                 seenIslands.add(island);
-                console.log("starting island: " +island);
                 // Make a Set of the split edges that are part of this island.
                 let islandSplitEdges = new Set();
                 for (let s of splitEdges) {
@@ -729,7 +732,6 @@ class ConnectedSTL {
                 // Find an edge leading to another edge that is on the
                 // convex hull.
                 while (islandSplitEdges.size > 0) {
-                    console.log(islandSplitEdges.size);
                     for (let splitEdge of islandSplitEdges) {
                         // Does this edge have a split edge connecting to it?
                         let otherSplitEdge = this.nextPositionInFace(splitEdge);
@@ -802,10 +804,6 @@ class ConnectedSTL {
                         }
                         // Add the new face to the positions.
                         let newPosition = this.positions.length;
-                        console.log("making a new face");
-                        console.log([this.vector3FromPosition(this.nextPositionInFace(otherSplitEdge)),
-                                     this.vector3FromPosition(otherSplitEdge),
-                                     bestVertex]);
                         for (let vertex of [this.vector3FromPosition(this.nextPositionInFace(otherSplitEdge)),
                                             this.vector3FromPosition(otherSplitEdge),
                                             bestVertex]) {
@@ -826,7 +824,6 @@ class ConnectedSTL {
                                 let otherEnd = this.vector3FromPosition(this.nextPositionInFace(otherUnconnectedEdge));
                                 if (newStart.equals(otherEnd) && newEnd.equals(otherStart)) {
                                     // We can connect this.
-                                    console.log("connecting");
                                     this.neighbors[newUnconnectedEdge/3] = otherUnconnectedEdge/3;
                                     this.neighbors[otherUnconnectedEdge/3] = newUnconnectedEdge/3;
                                     islandSplitEdges.delete(otherUnconnectedEdge);
@@ -840,25 +837,7 @@ class ConnectedSTL {
             }
         }
         // Need to recreate all the islands.
-        this.reverseIslands = [];
-        let currentRoot = 0;
-        let visit = (faceIndex, root) => {
-            if (!Number.isInteger(this.reverseIslands[faceIndex])) {
-                this.reverseIslands[faceIndex] = root;
-                for (let pos = faceIndex*9; pos < (faceIndex+1)*9; pos+=3) {
-                    visit(this.faceFromPosition(this.getNeighborPosition(pos)), root);
-                }
-            }
-        }
-        for (let faceIndex = 0; faceIndex < this.positions.length/9; faceIndex++) {
-            if (!Number.isInteger(this.reverseIslands[faceIndex])) {
-                // This is not yet part of an island so add it to
-                // a new island and visit all neighbors
-                // recursively.
-                visit(faceIndex, currentRoot);
-                currentRoot++;
-            }
-        }
+        this.computeIslands();
     }
 
     // Merge faces where possible.
@@ -1187,25 +1166,62 @@ class ConnectedSTL {
         }
         if (!Number.isInteger(island)) {
             // Need to recreate all the islands.
-            this.reverseIslands = [];
-            let currentRoot = 0;
-            let visit = (faceIndex, root) => {
-                if (!Number.isInteger(this.reverseIslands[faceIndex])) {
-                    this.reverseIslands[faceIndex] = root;
-                    for (let pos = faceIndex*9; pos < (faceIndex+1)*9; pos+=3) {
-                        visit(this.faceFromPosition(this.getNeighborPosition(pos)), root);
-                    }
-                }
+            this.computeIslands();
+        }
+    }
+
+    computeIslands() {
+        let faces = [];
+        for (let faceIndex = 0; faceIndex < this.positions.length/9; faceIndex++) {
+            faces[faceIndex] = {
+                // At first, each face is an island by itself.  Later, we'll join faces.
+                'island': faceIndex,
+                // The rank for the union-join algorithm on islands.
+                'rank': 0
             }
-            for (let faceIndex = 0; faceIndex < this.positions.length/9; faceIndex++) {
-                if (!Number.isInteger(this.reverseIslands[faceIndex])) {
-                    // This is not yet part of an island so add it to
-                    // a new island and visit all neighbors
-                    // recursively.
-                    visit(faceIndex, currentRoot);
-                    currentRoot++;
-                }
+        }
+        // Find the island to which this face belongs using the
+        // union-join algorithm.
+        let findIsland = (faceIndex) => {
+            if (faces[faceIndex].island != faceIndex) {
+                faces[faceIndex].island = findIsland(faces[faceIndex].island);
             }
+            return faces[faceIndex].island;
+        }
+
+        // Join the islands to which face1 and face2 belong.  Returns
+        // the new joined root, for convenience.
+        let joinIslands = (face1, face2) => {
+            // Union join needed?
+            let root1 = findIsland(face1);
+            let root2 = findIsland(face2);
+            if (root1 == root2) {
+                return root1;
+            }
+            // Need to join.
+            if (faces[root1].rank < faces[root2].rank) {
+                faces[root1].island = root2;
+                return root2;
+            } else if (faces[root2].rank < faces[root1].rank) {
+                faces[root2].island = root1;
+                return root1;
+            } else {
+                faces[root2].island = root1;
+                faces[root1].rank++;
+                return root1;
+            }
+        }
+        this.reverseIslands = [];
+        for (let faceIndex = 0; faceIndex < this.positions.length/9; faceIndex++) {
+            for (let edgeIndex = 0; edgeIndex < 3; edgeIndex++) {
+                let position = this.positionFromFaceEdge(faceIndex, edgeIndex);
+                let neighborPosition = this.getNeighborPosition(position);
+                let neighborFace = this.faceFromPosition(neighborPosition);
+                joinIslands(faceIndex, neighborFace);
+            }
+        }
+        for (let faceIndex = 0; faceIndex < this.positions.length/9; faceIndex++) {
+            this.reverseIslands[faceIndex] = findIsland(faceIndex);
         }
     }
 

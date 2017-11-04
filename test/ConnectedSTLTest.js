@@ -54,7 +54,7 @@ describe("ConnectedSTL", function() {
                     let mesh = new THREE.Mesh(newGeometries[i]);
                     let obj = new THREE.Object3D();
                     obj.add(mesh);
-                    fs.writeFileSync("new" + i + ".stl", new Buffer(new STLExporter().parse(obj)), 'ascii');
+                    fs.writeFileSync(filename + "_new" + i + ".stl", new Buffer(new STLExporter().parse(obj)), 'ascii');
                 }
             }
             expect(newGeometries.length).to.equal(expectedGeometriesCount);
@@ -73,11 +73,15 @@ describe("ConnectedSTL", function() {
             connectedSTL.collapse(new THREE.Plane(
                 new THREE.Vector3(1,0,0), -((boundingBox.max.x + boundingBox.min.x*3)/4)));
             //connectedSTL.mergeFaces();
+            newGeometries = connectedSTL.isolatedBufferGeometries(geometry);
+            console.log(newGeometries.length);
             if (writeShapes) {
-                let mesh = new THREE.Mesh(connectedSTL.bufferGeometry());
-                let obj = new THREE.Object3D();
-                obj.add(mesh);
-                fs.writeFileSync(filename + "_collapsed.stl", new Buffer(new STLExporter().parse(obj)), 'ascii');
+                for (let i = 0; i < newGeometries.length; i++) {
+                    let mesh = new THREE.Mesh(newGeometries[i]);
+                    let obj = new THREE.Object3D();
+                    obj.add(mesh);
+                    fs.writeFileSync(filename + "_collapsed" + i + ".stl", new Buffer(new STLExporter().parse(obj)), 'ascii');
+                }
             }
         }
 
@@ -119,7 +123,6 @@ describe("ConnectedSTL", function() {
             let stl = fs.readFileSync("test/egg.stl", {encoding: "binary"});
             let geometry = new STLLoader().parse(stl);
             let connectedSTL = new ConnectedSTL().fromBufferGeometry(geometry);
-            //expect(connectedSTL).to.be.null;
             connectedSTL.fixHoles();
             let mesh = new THREE.Mesh(connectedSTL.bufferGeometry());
             let obj = new THREE.Object3D();

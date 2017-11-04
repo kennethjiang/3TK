@@ -697,10 +697,13 @@ class ConnectedSTL {
                     // This edge is on the split.
                     splitEdges.add(position);
                 }
+                // Faces on negative side are put in new islands.
+                // Faces exactly on the split are removed.
                 let previousVertex = this.vector3FromPosition(previousPosition);
                 let distanceToPlane = plane.distanceToPoint(previousVertex);
-                if (splitPositions.has(this.keyForTrio(previousPosition)) ||
-                    distanceToPlane == 0) {
+                if (splitEdges.has(position) &&
+                    (splitPositions.has(this.keyForTrio(previousPosition)) ||
+                     distanceToPlane == 0)) {
                     this.reverseIslands[faceIndex] = null;
                 } else if (distanceToPlane < 0) {
                     // Put each side of the split into a different island.
@@ -710,6 +713,7 @@ class ConnectedSTL {
                 }
             }
         }
+        this.deleteDegenerates();
         let seenIslands = new Set();
         for (let island of this.reverseIslands) {
             if (!seenIslands.has(island)) {

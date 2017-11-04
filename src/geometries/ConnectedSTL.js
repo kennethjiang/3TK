@@ -638,11 +638,223 @@ class ConnectedSTL {
         return splitPositions;
     }
 
+    // Is there a plane passing through pos such that allPos are on
+    // the other side of it?
+    positionsInSameHemisphere(pos, allPos) {
+        // Now we check if all other points are on the
+        // same side of this point.
+        let firstVertex = null;
+        let minAngle = 0;
+        let maxAngle = 0;
+        let positiveNormal = null;
+        let vertex = this.vector3FromPosition(pos);
+        for (let otherPos of allPos) {
+            let otherVertex = this.vector3FromPosition(otherPos);
+            if (otherVertex.equals(vertex)) {
+                continue;  // Ignore, this is the same point.
+            }
+            if (firstVertex === null) {
+                firstVertex = new THREE.Vector3().copy(otherVertex);
+                continue;
+            }
+            let angle = this.angle3(firstVertex, vertex, otherVertex);
+            let normal = this.cross3(firstVertex, vertex, otherVertex).normalize();
+            if (positiveNormal === null && normal.length() > 0) {
+                positiveNormal = normal;
+            }
+            if (positiveNormal !== null &&
+                normal.distanceToSquared(positiveNormal) > 2) {
+                angle = -angle;
+            }
+            if (angle < minAngle) {
+                minAngle = angle;
+            }
+            if (angle > maxAngle) {
+                maxAngle = angle;
+            }
+            if (maxAngle - minAngle > Math.PI) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     // Given a plane, split along the plane and remove the negative
     // side of the plane.
     collapse(plane) {
         let splitPositions = this.splitFaces(plane);
-        // Do nothing because we don't yet know how.
+        let splitEdges = new Set();  // Edges that are entirely in the plane.
+        let vertex = new THREE.Vector3();
+        let nextVertex = new THREE.Vector3();
+        // All faces that are on the split are diconnected from their neighbors.
+        for (let faceIndex = 0; faceIndex < this.positions.length/9; faceIndex++) {
+            for (let vertexIndex = 0; vertexIndex < 3; vertexIndex++) {
+                let position = this.positionFromFaceEdge(faceIndex, vertexIndex);
+                let nextPosition = this.nextPositionInFace(position);
+                let previousPosition = this.previousPositionInFace(position);
+                if (splitPositions.has(this.keyForTrio(position)) &&
+                    splitPositions.has(this.keyForTrio(nextPosition))) {
+                    // This edge is on the split.
+                    splitEdges.add(position);
+                }
+                let previousVertex = this.vector3FromPosition(previousPosition);
+                let distanceToPlane = plane.distanceToPoint(previousVertex);
+                if (splitPositions.has(this.keyForTrio(previousPosition)) ||
+                    distanceToPlane == 0) {
+                    this.reverseIslands[faceIndex] = null;
+                } else if (distanceToPlane < 0) {
+                    // Put each side of the split into a different island.
+                    // Make all faces on the negative side negative.
+                    this.reverseIslands[faceIndex] *= -1;
+                    this.reverseIslands[faceIndex]--;
+                }
+            }
+        }
+        let seenIslands = new Set();
+        for (let island of this.reverseIslands) {
+            if (!seenIslands.has(island)) {
+                seenIslands.add(island);
+                console.log("starting island: " +island);
+                // Make a Set of the split edges that are part of this island.
+                let islandSplitEdges = new Set();
+                for (let s of splitEdges) {
+                    if (this.reverseIslands[this.faceFromPosition(s)] === island) {
+                        islandSplitEdges.add(s);
+                    }
+                }
+                // Find an edge leading to another edge that is on the
+                // convex hull.
+                while (islandSplitEdges.size > 0) {
+                    console.log(islandSplitEdges.size);
+                    for (let splitEdge of islandSplitEdges) {
+                        // Does this edge have a split edge connecting to it?
+                        let otherSplitEdge = this.nextPositionInFace(splitEdge);
+                        do {
+                            let neighborPosition = this.getNeighborPosition(otherSplitEdge);
+                            if (!Number.isInteger(neighborPosition)) {
+                                otherSplitEdge = null;
+                                break;
+                            }
+                            otherSplitEdge = this.nextPositionInFace(neighborPosition);
+                        } while (otherSplitEdge != this.nextPositionInFace(splitEdge) &&
+                                 !islandSplitEdges.has(otherSplitEdge));
+                        if (!Number.isInteger(otherSplitEdge) ||
+                            otherSplitEdge == this.nextPositionInFace(splitEdge)) {
+                            // This edge doesn't have a suitable next edge.
+                            continue;
+                        }
+                        // The face that we will portentially create is
+                        // otherSplitEdge's next, otherSplitEdge, and
+                        // splitEdge.
+
+                        let allPoints = []
+                        for (let edge of islandSplitEdges) {
+                            for (let pos of [edge,
+                                             this.nextPositionInFace(edge)]) {
+                                allPoints.push(pos);
+                            }
+                        }
+                        if (!this.positionsInSameHemisphere(otherSplitEdge, allPoints)) {
+                            // This isn't part of the convex hull.
+                            continue;
+                        }
+                        // Are there any points in this triangle?
+                        let bestVertex = this.vector3FromPosition(splitEdge);
+                        for (let pos in allPoints) {
+                            let insideVertex = this.vector3FromPosition(pos);
+                            let cross1 = this.cross3(
+                                bestVertex,
+                                this.vector3FromPosition(this.nextPositionInFace(otherSplitEdge)),
+                                insideVertex);
+                            let cross2 = this.cross3(
+                                insideVertex,
+                                this.vector3FromPosition(this.nextPositionInFace(otherSplitEdge)),
+                                this.vector3FromPosition(otherSplitEdge));
+                            cross1.normalize();
+                            cross2.normalize();
+                            if (cross1.length() == 0 ||
+                                cross2.length() == 0 ||
+                                cross1.distanceToSquared(cross2) > 2) {
+                                // Opposite normals, this point is outside.
+                                continue;
+                            }
+                            cross1 = this.cross3(
+                                this.vector3FromPosition(this.nextPositionInFace(otherSplitEdge)),
+                                bestVertex,
+                                insideVertex);
+                            cross2 = this.cross3(
+                                insideVertex,
+                                bestVertex,
+                                this.vector3FromPosition(otherSplitEdge));
+                            cross1.normalize();
+                            cross2.normalize();
+                            if (cross1.length() == 0 ||
+                                cross2.length() == 0 ||
+                                cross1.distanceToSquared(cross2) > 2) {
+                                // Opposite normals, this point is outside.
+                                continue;
+                            }
+                            bestVertex = insideVertex;
+                        }
+                        // Add the new face to the positions.
+                        let newPosition = this.positions.length;
+                        console.log("making a new face");
+                        console.log([this.vector3FromPosition(this.nextPositionInFace(otherSplitEdge)),
+                                     this.vector3FromPosition(otherSplitEdge),
+                                     bestVertex]);
+                        for (let vertex of [this.vector3FromPosition(this.nextPositionInFace(otherSplitEdge)),
+                                            this.vector3FromPosition(otherSplitEdge),
+                                            bestVertex]) {
+                            this.positions.push(vertex.x,
+                                                vertex.y,
+                                                vertex.z);
+                        }
+                        // Add all the edges of the new face as unconnected.
+                        islandSplitEdges.add(newPosition);
+                        islandSplitEdges.add(newPosition+3);
+                        islandSplitEdges.add(newPosition+6);
+                        // Connect all unconnectedEdges that can be connected.
+                        for (let newUnconnectedEdge of [newPosition, newPosition+3, newPosition+6]) {
+                            for (let otherUnconnectedEdge of islandSplitEdges) {
+                                let newStart = this.vector3FromPosition(newUnconnectedEdge);
+                                let newEnd = this.vector3FromPosition(this.nextPositionInFace(newUnconnectedEdge));
+                                let otherStart = this.vector3FromPosition(otherUnconnectedEdge);
+                                let otherEnd = this.vector3FromPosition(this.nextPositionInFace(otherUnconnectedEdge));
+                                if (newStart.equals(otherEnd) && newEnd.equals(otherStart)) {
+                                    // We can connect this.
+                                    console.log("connecting");
+                                    this.neighbors[newUnconnectedEdge/3] = otherUnconnectedEdge/3;
+                                    this.neighbors[otherUnconnectedEdge/3] = newUnconnectedEdge/3;
+                                    islandSplitEdges.delete(otherUnconnectedEdge);
+                                    islandSplitEdges.delete(newUnconnectedEdge);
+                                }
+                            }
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+        // Need to recreate all the islands.
+        this.reverseIslands = [];
+        let currentRoot = 0;
+        let visit = (faceIndex, root) => {
+            if (!Number.isInteger(this.reverseIslands[faceIndex])) {
+                this.reverseIslands[faceIndex] = root;
+                for (let pos = faceIndex*9; pos < (faceIndex+1)*9; pos+=3) {
+                    visit(this.faceFromPosition(this.getNeighborPosition(pos)), root);
+                }
+            }
+        }
+        for (let faceIndex = 0; faceIndex < this.positions.length/9; faceIndex++) {
+            if (!Number.isInteger(this.reverseIslands[faceIndex])) {
+                // This is not yet part of an island so add it to
+                // a new island and visit all neighbors
+                // recursively.
+                visit(faceIndex, currentRoot);
+                currentRoot++;
+            }
+        }
     }
 
     // Merge faces where possible.
@@ -805,6 +1017,11 @@ class ConnectedSTL {
     // Angle of abc.
     angle3(left, middle, right) {
         return left.clone().sub(middle).angleTo(right.clone().sub(middle));
+    }
+
+    // ba cross bc.
+    cross3(left, middle, right) {
+        return left.clone().sub(middle).cross(right.clone().sub(middle));
     }
 
     // Try to make triangles have bigger angles.

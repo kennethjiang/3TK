@@ -21,6 +21,9 @@ class ConnectedSTL {
         this.faceNormalVector3s = [new THREE.Vector3(),
                                    new THREE.Vector3(),
                                    new THREE.Vector3()];
+        this.vertexLeft = new THREE.Vector3();
+        this.vertexMiddle = new THREE.Vector3();
+        this.vertexRight = new THREE.Vector3();
     }
 
     clone() {
@@ -647,8 +650,10 @@ class ConnectedSTL {
         let maxAngle = 0;
         let positiveNormal = null;
         let vertex = this.vector3FromPosition(pos);
+        let otherVertex = new THREE.Vector3();
+        let normal = new THREE.Vector3();
         for (let otherPos of allPos) {
-            let otherVertex = this.vector3FromPosition(otherPos);
+            otherVertex = this.vector3FromPosition(otherPos, otherVertex);
             if (otherVertex.equals(vertex)) {
                 continue;  // Ignore, this is the same point.
             }
@@ -657,7 +662,7 @@ class ConnectedSTL {
                 continue;
             }
             let angle = this.angle3(firstVertex, vertex, otherVertex);
-            let normal = this.cross3(firstVertex, vertex, otherVertex).normalize();
+            normal = this.cross3(firstVertex, vertex, otherVertex, normal).normalize();
             if (positiveNormal === null && normal.length() > 0) {
                 positiveNormal = normal;
             }
@@ -999,12 +1004,13 @@ class ConnectedSTL {
 
     // Angle of abc.
     angle3(left, middle, right) {
-        return left.clone().sub(middle).angleTo(right.clone().sub(middle));
+        return this.vertexLeft.copy(left).sub(middle).angleTo(this.vertexRight.copy(right).sub(middle));
     }
 
     // ba cross bc.
-    cross3(left, middle, right) {
-        return left.clone().sub(middle).cross(right.clone().sub(middle));
+    cross3(left, middle, right, target) {
+        target = target || new THREE.Vector3();
+        return target.copy(left).sub(middle).cross(this.vertexRight.copy(right).sub(middle));
     }
 
     // Try to make triangles have bigger angles.

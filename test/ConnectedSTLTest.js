@@ -74,7 +74,6 @@ describe("ConnectedSTL", function() {
                 new THREE.Vector3(1,0,0), -((boundingBox.max.x + boundingBox.min.x*3)/4)));
             //connectedSTL.mergeFaces();
             newGeometries = connectedSTL.isolatedBufferGeometries(geometry);
-            console.log(newGeometries.length);
             if (writeShapes) {
                 for (let i = 0; i < newGeometries.length; i++) {
                     let mesh = new THREE.Mesh(newGeometries[i]);
@@ -113,21 +112,26 @@ describe("ConnectedSTL", function() {
             testFile("shuffled_rubix", 27);
         });
 
+        it("egg shape with lots of faces", function() {
+            this.timeout(0);
+            testFile("egg", 1);
+        });
+
         it("Big object: Dinosaur Jump", function() {
-            this.timeout(40000);
+            this.timeout(0);
             testFile("DINOSAUR_JUMP", 1);
         });
 
         it("Non-manifold object", function () {
             this.timeout(0);
-            let stl = fs.readFileSync("test/egg.stl", {encoding: "binary"});
+            let stl = fs.readFileSync("test/egg_with_holes.stl", {encoding: "binary"});
             let geometry = new STLLoader().parse(stl);
             let connectedSTL = new ConnectedSTL().fromBufferGeometry(geometry);
             connectedSTL.fixHoles();
             let mesh = new THREE.Mesh(connectedSTL.bufferGeometry());
             let obj = new THREE.Object3D();
             obj.add(mesh);
-            fs.writeFileSync("egg_repaired.stl", new Buffer(new STLExporter().parse(obj)), 'ascii');
+            fs.writeFileSync("egg_with_holes_repaired.stl", new Buffer(new STLExporter().parse(obj)), 'ascii');
         });
 
         it("dino jump just merge", function () {

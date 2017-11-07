@@ -84,6 +84,10 @@ describe("ConnectedSTL", function() {
             }
         }
 
+        it("Crescent", function() {
+            testFile("crescent", 1);
+        });
+
         it("Simple tetrahedron", function() {
             testFile("tetrahedron", 1);
         });

@@ -664,7 +664,7 @@ class ConnectedSTL {
             let angle = this.angle3(firstVertex, vertex, otherVertex);
             normal = this.cross3(firstVertex, vertex, otherVertex, normal).normalize();
             if (positiveNormal === null && normal.length() > 0) {
-                positiveNormal = normal;
+                positiveNormal = normal.clone();
             }
             if (positiveNormal !== null &&
                 normal.distanceToSquared(positiveNormal) > 2) {
@@ -677,6 +677,26 @@ class ConnectedSTL {
                 maxAngle = angle;
             }
             if (maxAngle - minAngle > Math.PI) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // Returns true if p is in the triangle a,b,c.  Assumes that
+    // p,a,b,c are all pretty much coplanar.  Points on the triangle
+    // are considered inside, too.
+    pointInTriangle(p, triangle) {
+        // Reuse the temporary variable from this.faceNormal();
+        let crossProducts = this.faceNormalVector3s;
+        for (let i = 0; i < 3; i++) {
+            crossProducts[i] = this.cross3(triangle[i], p, triangle[(i+1)%3], crossProducts[i]);
+            crossProducts[i].normalize();
+        }
+        // If there are any two opposite normals, they point is
+        // outside.
+        for (let i = 0; i < crossProducts.length; i++) {
+            if (crossProducts[i].distanceToSquared(crossProducts[(i+1)%3]) > 3) {
                 return false;
             }
         }
@@ -769,49 +789,31 @@ class ConnectedSTL {
                             // This isn't part of the convex hull.
                             continue;
                         }
-                        // Are there any points in this triangle?
-                        let bestVertex = this.vector3FromPosition(splitEdge);
-                        for (let pos in allPoints) {
-                            let insideVertex = this.vector3FromPosition(pos);
-                            let cross1 = this.cross3(
-                                bestVertex,
-                                this.vector3FromPosition(this.nextPositionInFace(otherSplitEdge)),
-                                insideVertex);
-                            let cross2 = this.cross3(
-                                insideVertex,
-                                this.vector3FromPosition(this.nextPositionInFace(otherSplitEdge)),
-                                this.vector3FromPosition(otherSplitEdge));
-                            cross1.normalize();
-                            cross2.normalize();
-                            if (cross1.length() == 0 ||
-                                cross2.length() == 0 ||
-                                cross1.distanceToSquared(cross2) > 2) {
-                                // Opposite normals, this point is outside.
-                                continue;
+                        // Are there any points in this triangle?  If
+                        // so, one will replace the third vertex of
+                        // the new face.
+                        let maybeInsidePoint = new THREE.Vector3();
+                        let newVertices = [this.vector3FromPosition(this.nextPositionInFace(otherSplitEdge)),
+                                           this.vector3FromPosition(otherSplitEdge),
+                                           this.vector3FromPosition(splitEdge)];
+                        for (let pos of allPoints) {
+                            let maybeInsidePoint = this.vector3FromPosition(pos, maybeInsidePoint);
+                            let match = false;
+                            for (let v of newVertices) {
+                                if (maybeInsidePoint.equals(v)) {
+                                    match = true;
+                                }
                             }
-                            cross1 = this.cross3(
-                                this.vector3FromPosition(this.nextPositionInFace(otherSplitEdge)),
-                                bestVertex,
-                                insideVertex);
-                            cross2 = this.cross3(
-                                insideVertex,
-                                bestVertex,
-                                this.vector3FromPosition(otherSplitEdge));
-                            cross1.normalize();
-                            cross2.normalize();
-                            if (cross1.length() == 0 ||
-                                cross2.length() == 0 ||
-                                cross1.distanceToSquared(cross2) > 2) {
-                                // Opposite normals, this point is outside.
-                                continue;
+                            if (match) {
+                                continue; // Doesn't count as being inside.
                             }
-                            bestVertex = insideVertex;
+                            if (this.pointInTriangle(maybeInsidePoint, newVertices)) {
+                                newVertices[2].copy(maybeInsidePoint);
+                            }
                         }
                         // Add the new face to the positions.
                         let newPosition = this.positions.length;
-                        for (let vertex of [this.vector3FromPosition(this.nextPositionInFace(otherSplitEdge)),
-                                            this.vector3FromPosition(otherSplitEdge),
-                                            bestVertex]) {
+                        for (let vertex of newVertices) {
                             this.positions.push(vertex.x,
                                                 vertex.y,
                                                 vertex.z);
@@ -836,7 +838,6 @@ class ConnectedSTL {
                                 }
                             }
                         }
-                        break;
                     }
                 }
             }
@@ -1222,8 +1223,10 @@ class ConnectedSTL {
             for (let edgeIndex = 0; edgeIndex < 3; edgeIndex++) {
                 let position = this.positionFromFaceEdge(faceIndex, edgeIndex);
                 let neighborPosition = this.getNeighborPosition(position);
-                let neighborFace = this.faceFromPosition(neighborPosition);
-                joinIslands(faceIndex, neighborFace);
+                if (Number.isInteger(neighborPosition)) {
+                    let neighborFace = this.faceFromPosition(neighborPosition);
+                    joinIslands(faceIndex, neighborFace);
+                }
             }
         }
         for (let faceIndex = 0; faceIndex < this.positions.length/9; faceIndex++) {

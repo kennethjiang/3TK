@@ -703,38 +703,39 @@ class ConnectedSTL {
         return true;
     }
 
-    // Given a plane, split along the plane and remove the negative
-    // side of the plane.
-    collapse(plane) {
-        let splitPositions = this.splitFaces(plane);
+    // After splitting a shape, it can be useful to disconnect the
+    // neighbors that are across the split.  Given the split
+    // positions, disconnect neighbors.  Also update the
+    // reverseIslands so that an island affected by the split is made
+    // into two islands.  Faces exactly in the plane (very rare) are
+    // removed entirely.
+    disconnectAtSplit(plane, splitPositions) {
         let splitEdges = new Set();  // Edges that are entirely in the plane.
-        let vertex = new THREE.Vector3();
-        let nextVertex = new THREE.Vector3();
         // All faces that are on the split are diconnected from their neighbors.
+        let vertices = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
+        let maxReverseIsland = Math.max(...this.reverseIslands) + 1;
         for (let faceIndex = 0; faceIndex < this.positions.length/9; faceIndex++) {
-            {
-                let positions = this.positionsFromFace(faceIndex, 0);
-                let vertices = this.vector3sFromPositions(positions);
-                let distances = [];
-                for (let i = 0; i < 3; i++) {
-                    if (splitPositions.has(this.keyForTrio(positions[i]))) {
-                        distances.push(0);
-                    } else {
-                        distances.push(plane.distanceToPoint(vertices[i]));
-                    }
+            let positions = this.positionsFromFace(faceIndex, 0);
+            vertices = this.vector3sFromPositions(positions, vertices);
+            let distances = [];
+            for (let i = 0; i < 3; i++) {
+                if (splitPositions.has(this.keyForTrio(positions[i]))) {
+                    distances.push(0);
+                } else {
+                    distances.push(plane.distanceToPoint(vertices[i]));
                 }
-                if (distances[0] == 0 && distances[1] == 0 && distances[2] == 0) {
-                    this.reverseIslands[faceIndex] == null;
-                    continue;  // No need to continue.
-                } else if (distances[0] <=0 && distances[1] <= 0 && distances[2] <= 0) {
-                    this.reverseIslands[faceIndex] *= -1;
-                    this.reverseIslands[faceIndex]--;
-                }
+            }
+            if (distances[0] == 0 && distances[1] == 0 && distances[2] == 0) {
+                this.reverseIslands[faceIndex] == null;
+                continue;  // No need to continue.
+            } else if (distances[0] <=0 && distances[1] <= 0 && distances[2] <= 0) {
+                // Put everying on the negative side in a new island.
+                // Any number will do so long as we're consistent.
+                this.reverseIslands[faceIndex] += maxReverseIsland;
             }
             for (let vertexIndex = 0; vertexIndex < 3; vertexIndex++) {
                 let position = this.positionFromFaceEdge(faceIndex, vertexIndex);
                 let nextPosition = this.nextPositionInFace(position);
-                let previousPosition = this.previousPositionInFace(position);
                 if (splitPositions.has(this.keyForTrio(position)) &&
                     splitPositions.has(this.keyForTrio(nextPosition))) {
                     // This edge is on the split.
@@ -743,6 +744,16 @@ class ConnectedSTL {
             }
         }
         this.deleteDegenerates();
+        return splitEdges;
+    }
+
+
+    // Given a plane, split along the plane and remove the negative
+    // side of the plane.
+    collapse(plane) {
+        let splitPositions = this.splitFaces(plane);
+        // Edges that are entirely in the plane.
+        let splitEdges = this.disconnectAtSplit(plane, splitPositions);
         let seenIslands = new Set();
         for (let island of this.reverseIslands) {
             if (!seenIslands.has(island)) {

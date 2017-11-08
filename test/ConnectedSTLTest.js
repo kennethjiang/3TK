@@ -84,6 +84,14 @@ describe("ConnectedSTL", function() {
             }
         }
 
+        it("Plus", function() {
+            testFile("plus", 1);
+        });
+
+        it("Stairs", function() {
+            testFile("stairs", 1);
+        });
+
         it("Crescent", function() {
             testFile("crescent", 1);
         });

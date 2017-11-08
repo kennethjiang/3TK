@@ -676,7 +676,7 @@ class ConnectedSTL {
             if (angle > maxAngle) {
                 maxAngle = angle;
             }
-            if (maxAngle - minAngle > Math.PI) {
+            if (maxAngle - minAngle >= Math.PI) {
                 return false;
             }
         }
@@ -703,17 +703,17 @@ class ConnectedSTL {
         return true;
     }
 
-    // After splitting a shape, it can be useful to disconnect the
-    // neighbors that are across the split.  Given the split
-    // positions, disconnect neighbors.  Also update the
-    // reverseIslands so that an island affected by the split is made
-    // into two islands.  Faces exactly in the plane (very rare) are
-    // removed entirely.
+    // After splitting a shape, split the islands that on different
+    // sides of the plane.  Returns the positions of all the edges
+    // that are in the plane.
     disconnectAtSplit(plane, splitPositions) {
         let splitEdges = new Set();  // Edges that are entirely in the plane.
         // All faces that are on the split are diconnected from their neighbors.
         let vertices = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
-        let maxReverseIsland = Math.max(...this.reverseIslands) + 1;
+        let maxReverseIsland = -Infinity;
+        for (let reverseIsland of this.reverseIslands) {
+            maxReverseIsland = Math.max(maxReverseIsland, reverseIsland);
+        }
         for (let faceIndex = 0; faceIndex < this.positions.length/9; faceIndex++) {
             let positions = this.positionsFromFace(faceIndex, 0);
             vertices = this.vector3sFromPositions(positions, vertices);
@@ -747,6 +747,58 @@ class ConnectedSTL {
         return splitEdges;
     }
 
+    // For each edge, find the edge in the input that leads from its
+    // end and the one that leads to its start.  Return a map from
+    // edge to previous edge and next edgee.  If a previous or next
+    // isn't found, that previous or next is stored as null.
+    findEdgesInPlane(splitEdges) {
+        let splitEdgesMap = new Map();
+        for (let splitEdge of splitEdges) {
+            // First we check in one direction.
+            let nextSplitEdge = this.getNeighborPosition(splitEdge);
+            let face = this.faceFromPosition(splitEdge);
+            while (Number.isInteger(nextSplitEdge) && // Have a neighbor.
+                   nextSplitEdge != splitEdge && // Not back to the start.
+                   !(splitEdges.has(nextSplitEdge) &&
+                     this.reverseIslands[face] ==
+                     this.reverseIslands[this.faceFromPosition(nextSplitEdge)])) {
+                // Keep going around the neighbors.
+                nextSplitEdge = this.getNeighborPosition(this.previousPositionInFace(nextSplitEdge));
+            }
+            if (splitEdges.has(nextSplitEdge) &&
+                this.reverseIslands[face] ==
+                this.reverseIslands[this.faceFromPosition(nextSplitEdge)]) {
+                // Found it.  Store it in the map and do the next one.
+                splitEdgesMap.set(splitEdge, [null, nextSplitEdge]);
+                continue;
+            }
+            // Now check in the other direction.
+            nextSplitEdge = this.nextPositionInFace(splitEdge);
+            while (Number.isInteger(nextSplitEdge) && // Have a neighbor.
+                   nextSplitEdge != splitEdge && // Not back to the start.
+                   !(splitEdges.has(nextSplitEdge) &&
+                     this.reverseIslands[face] ==
+                     this.reverseIslands[this.faceFromPosition(nextSplitEdge)])) {
+                nextSplitEdge = this.nextPositionInFace(this.getNeighborPosition(nextSplitEdge));
+            }
+            if (splitEdges.has(nextSplitEdge) &&
+                this.reverseIslands[face] ==
+                this.reverseIslands[this.faceFromPosition(nextSplitEdge)]) {
+                // Found it.  Store it in the map and do the next one.
+                splitEdgesMap.set(splitEdge, [null, nextSplitEdge]);
+                continue;
+            }
+            splitEdgesMap.set(splitEdge, [null, null]);  // Couldn't find it.
+        }
+        // Now we have the next edge for each edge.  Let's find the
+        // previous edge for each edge.
+        for (let [edge, [previous, next]] of splitEdgesMap) {
+            if (Number.isInteger(next)) {
+                splitEdgesMap.get(next)[0] = edge;
+            }
+        }
+        return splitEdgesMap;
+    }
 
     // Given a plane, split along the plane and remove the negative
     // side of the plane.
@@ -754,49 +806,49 @@ class ConnectedSTL {
         let splitPositions = this.splitFaces(plane);
         // Edges that are entirely in the plane.
         let splitEdges = this.disconnectAtSplit(plane, splitPositions);
+        let splitEdgesMap = this.findEdgesInPlane(splitEdges);
         let seenIslands = new Set();
         for (let island of this.reverseIslands) {
             if (!seenIslands.has(island)) {
                 seenIslands.add(island);
-                // Make a Set of the split edges that are part of this island.
-                let islandSplitEdges = new Set();
-                for (let s of splitEdges) {
-                    if (this.reverseIslands[this.faceFromPosition(s)] === island) {
-                        islandSplitEdges.add(s);
+                // Make a Map of the splitEdgesMap with just the island that are part of this island.
+                let islandSplitEdgesMap = new Map();
+                for (let [edge, nextEdge] of splitEdgesMap) {
+                    if (this.reverseIslands[this.faceFromPosition(edge)] === island) {
+                        islandSplitEdgesMap.set(edge, nextEdge);
                     }
                 }
+                console.log("new island");
                 // Find an edge leading to another edge that is on the
                 // convex hull.
-                while (islandSplitEdges.size > 0) {
-                    for (let splitEdge of islandSplitEdges) {
+                while (islandSplitEdgesMap.size > 0) {
+                    console.log("starting over " + islandSplitEdgesMap.size);
+                    for (let [splitEdge, [previousSplitEdge, nextSplitEdge]] of islandSplitEdgesMap) {
+                        if (!islandSplitEdgesMap.has(splitEdge)) {
+                            console.log("previously removed");
+                            continue;
+                        }
                         // Does this edge have a split edge connecting to it?
-                        let otherSplitEdge = this.nextPositionInFace(splitEdge);
-                        do {
-                            let neighborPosition = this.getNeighborPosition(otherSplitEdge);
-                            if (!Number.isInteger(neighborPosition)) {
-                                otherSplitEdge = null;
-                                break;
-                            }
-                            otherSplitEdge = this.nextPositionInFace(neighborPosition);
-                        } while (otherSplitEdge != this.nextPositionInFace(splitEdge) &&
-                                 !islandSplitEdges.has(otherSplitEdge));
-                        if (!Number.isInteger(otherSplitEdge) ||
-                            otherSplitEdge == this.nextPositionInFace(splitEdge)) {
+                        if (!Number.isInteger(nextSplitEdge)) {
                             // This edge doesn't have a suitable next edge.
                             continue;
                         }
-                        // The face that we will portentially create is
-                        // otherSplitEdge's next, otherSplitEdge, and
+                        // The face that we will portentially create
+                        // is nextSplitEdge's next, nextSplitEdge, and
                         // splitEdge.
 
-                        let allPoints = []
-                        for (let edge of islandSplitEdges) {
+                        let allPoints = [];
+                        let allPointsKeys = new Set();
+                        for (let edge of islandSplitEdgesMap.keys()) {
                             for (let pos of [edge,
                                              this.nextPositionInFace(edge)]) {
-                                allPoints.push(pos);
+                                if (!allPointsKeys.has(this.keyForTrio(pos))) {
+                                    allPointsKeys.add(this.keyForTrio(pos));
+                                    allPoints.push(pos);
+                                }
                             }
                         }
-                        if (!this.positionsInSameHemisphere(otherSplitEdge, allPoints)) {
+                        if (!this.positionsInSameHemisphere(nextSplitEdge, allPoints)) {
                             // This isn't part of the convex hull.
                             continue;
                         }
@@ -804,8 +856,8 @@ class ConnectedSTL {
                         // so, one will replace the third vertex of
                         // the new face.
                         let maybeInsidePoint = new THREE.Vector3();
-                        let newVertices = [this.vector3FromPosition(this.nextPositionInFace(otherSplitEdge)),
-                                           this.vector3FromPosition(otherSplitEdge),
+                        let newVertices = [this.vector3FromPosition(this.nextPositionInFace(nextSplitEdge)),
+                                           this.vector3FromPosition(nextSplitEdge),
                                            this.vector3FromPosition(splitEdge)];
                         for (let pos of allPoints) {
                             let maybeInsidePoint = this.vector3FromPosition(pos, maybeInsidePoint);
@@ -830,22 +882,37 @@ class ConnectedSTL {
                                                 vertex.z);
                         }
                         // Add all the edges of the new face as unconnected.
-                        islandSplitEdges.add(newPosition);
-                        islandSplitEdges.add(newPosition+3);
-                        islandSplitEdges.add(newPosition+6);
+                        for (let i = 0; i < 9; i+=3) {
+                            islandSplitEdgesMap.set(newPosition+i, [this.previousPositionInFace(newPosition+i),
+                                                                    this.nextPositionInFace(newPosition+i)]);
+                        }
                         // Connect all unconnectedEdges that can be connected.
                         for (let newUnconnectedEdge of [newPosition, newPosition+3, newPosition+6]) {
-                            for (let otherUnconnectedEdge of islandSplitEdges) {
+                            let connectionCount = 0;
+                            for (let otherUnconnectedEdge of islandSplitEdgesMap.keys()) {
                                 let newStart = this.vector3FromPosition(newUnconnectedEdge);
                                 let newEnd = this.vector3FromPosition(this.nextPositionInFace(newUnconnectedEdge));
                                 let otherStart = this.vector3FromPosition(otherUnconnectedEdge);
                                 let otherEnd = this.vector3FromPosition(this.nextPositionInFace(otherUnconnectedEdge));
                                 if (newStart.equals(otherEnd) && newEnd.equals(otherStart)) {
                                     // We can connect this.
+                                    connectionCount++;
+                                    if (connectionCount > 1) {
+                                        console.log("shit");
+                                    }
+                                    // Connect the neighbors that we've just found.
                                     this.neighbors[newUnconnectedEdge/3] = otherUnconnectedEdge/3;
                                     this.neighbors[otherUnconnectedEdge/3] = newUnconnectedEdge/3;
-                                    islandSplitEdges.delete(otherUnconnectedEdge);
-                                    islandSplitEdges.delete(newUnconnectedEdge);
+                                    // Update the doubly-linked split edges.
+                                    let [previousNew, nextNew] = islandSplitEdgesMap.get(newUnconnectedEdge);
+                                    let [previousOther, nextOther] = islandSplitEdgesMap.get(otherUnconnectedEdge);
+                                    islandSplitEdgesMap.get(previousNew)[1] = nextOther;
+                                    islandSplitEdgesMap.get(previousOther)[1] = nextNew;
+                                    islandSplitEdgesMap.get(nextNew)[0] = previousOther;
+                                    islandSplitEdgesMap.get(nextOther)[0] = previousNew;
+                                    // Remove the unlinked edges.
+                                    islandSplitEdgesMap.delete(otherUnconnectedEdge);
+                                    islandSplitEdgesMap.delete(newUnconnectedEdge);
                                 }
                             }
                         }

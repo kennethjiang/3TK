@@ -79,15 +79,15 @@ describe("ConnectedSTL", function() {
 
             expect(newGeometries.length).to.equal(expectedGeometriesCount);
 
-            connectedSTL.collapse(new THREE.Plane(
+            let newConnectedSTLs = connectedSTL.collapse(new THREE.Plane(
                 new THREE.Vector3(1,0,0), -((boundingBox.max.x + boundingBox.min.x*3)/4)));
-            connectedSTL.mergeFaces();
-            connectedSTL.retriangle(
-                Array.from(new Array(connectedSTL.positions.length/9).keys()));
-            newGeometries = connectedSTL.isolatedBufferGeometries(geometry);
-            if (writeShapes) {
-                for (let i = 0; i < newGeometries.length; i++) {
-                    let mesh = new THREE.Mesh(newGeometries[i]);
+            for (let i = 0; i < newConnectedSTLs.length; i++) {
+                let newConnectedSTL = newConnectedSTLs[i];
+                newConnectedSTL.mergeFaces();
+                newConnectedSTL.retriangle(
+                    Array.from(new Array(newConnectedSTL.positions.length/9).keys()));
+                if (writeShapes) {
+                    let mesh = new THREE.Mesh(newConnectedSTL.bufferGeometry());
                     let obj = new THREE.Object3D();
                     obj.add(mesh);
                     fs.writeFileSync(filename + "_collapsed" + i + ".stl", new Buffer(new STLExporter().parse(obj)), 'ascii');

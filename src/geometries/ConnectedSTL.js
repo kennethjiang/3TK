@@ -903,9 +903,10 @@ class ConnectedSTL {
         }
     }
 
-    // Given a plane, split along the plane and remove the negative
-    // side of the plane.
-    collapse(plane) {
+    // Given a plane, split along the plane and return two new
+    // ConnectedSTLs, one for each side.  The ConnectedSTLs are mended
+    // where they were choped.
+    chop(plane) {
         let splitPositions = this.splitFaces(plane);
         let newConnectedSTLs = this.disconnectAtSplit(plane, splitPositions);
         for (let newConnectedSTL of newConnectedSTLs) {

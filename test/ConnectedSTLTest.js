@@ -79,7 +79,7 @@ describe("ConnectedSTL", function() {
 
             expect(newGeometries.length).to.equal(expectedGeometriesCount);
 
-            let newConnectedSTLs = connectedSTL.collapse(new THREE.Plane(
+            let newConnectedSTLs = connectedSTL.chop(new THREE.Plane(
                 new THREE.Vector3(1,0,0), -((boundingBox.max.x + boundingBox.min.x*3)/4)));
             for (let i = 0; i < newConnectedSTLs.length; i++) {
                 let newConnectedSTL = newConnectedSTLs[i];
@@ -90,7 +90,7 @@ describe("ConnectedSTL", function() {
                     let mesh = new THREE.Mesh(newConnectedSTL.bufferGeometry());
                     let obj = new THREE.Object3D();
                     obj.add(mesh);
-                    fs.writeFileSync(filename + "_collapsed" + i + ".stl", new Buffer(new STLExporter().parse(obj)), 'ascii');
+                    fs.writeFileSync(filename + "_chop" + i + ".stl", new Buffer(new STLExporter().parse(obj)), 'ascii');
                 }
             }
         }

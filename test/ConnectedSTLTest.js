@@ -72,7 +72,9 @@ describe("ConnectedSTL", function() {
 
             connectedSTL.collapse(new THREE.Plane(
                 new THREE.Vector3(1,0,0), -((boundingBox.max.x + boundingBox.min.x*3)/4)));
-            //connectedSTL.mergeFaces();
+            connectedSTL.mergeFaces();
+            connectedSTL.retriangle(
+                Array.from(new Array(connectedSTL.positions.length/9).keys()));
             newGeometries = connectedSTL.isolatedBufferGeometries(geometry);
             if (writeShapes) {
                 for (let i = 0; i < newGeometries.length; i++) {

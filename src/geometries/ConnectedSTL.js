@@ -896,10 +896,6 @@ class ConnectedSTL {
                                 let otherEnd = this.vector3FromPosition(this.nextPositionInFace(otherUnconnectedEdge));
                                 if (newStart.equals(otherEnd) && newEnd.equals(otherStart)) {
                                     // We can connect this.
-                                    connectionCount++;
-                                    if (connectionCount > 1) {
-                                        console.log("shit");
-                                    }
                                     // Connect the neighbors that we've just found.
                                     this.neighbors[newUnconnectedEdge/3] = otherUnconnectedEdge/3;
                                     this.neighbors[otherUnconnectedEdge/3] = newUnconnectedEdge/3;
@@ -913,6 +909,7 @@ class ConnectedSTL {
                                     // Remove the unlinked edges.
                                     islandSplitEdgesMap.delete(otherUnconnectedEdge);
                                     islandSplitEdgesMap.delete(newUnconnectedEdge);
+                                    break;
                                 }
                             }
                         }
@@ -1092,7 +1089,8 @@ class ConnectedSTL {
         return target.copy(left).sub(middle).cross(this.vertexRight.copy(right).sub(middle));
     }
 
-    // Try to make triangles have bigger angles.
+    // Try to get rid of thin, sliver triangles using triangle flips.
+    // https://en.wikipedia.org/wiki/Delaunay_triangulation#Flip_algorithms
     //
     // If two triangles have the same normal, see if connecting edge
     // can be rotated to make the triangles not have small angles.
@@ -1109,6 +1107,9 @@ class ConnectedSTL {
                 for (let edgeIndex = 0; edgeIndex < 3; edgeIndex++) {
                     let positions = [this.positionsFromFace(faceIndex, edgeIndex)];
                     positions[1] = [this.getNeighborPosition(positions[0][0])];
+                    if (!Number.isInteger(positions[1])) {
+                        continue; // No neighbor for flip.
+                    }
                     positions[1].push(this.nextPositionInFace(positions[1][0]),
                                       this.previousPositionInFace(positions[1][0]));
                     let vertices = [];
@@ -1121,38 +1122,12 @@ class ConnectedSTL {
                         // We can't move these around because the normals are too different.
                         continue;
                     }
-                    let smallestAngle = Infinity;
-                    for (let i = 0; i < 2; i++) {
-                        for (let j = 0; j < 3; j++) {
-                            let currentAngle = this.angle3(vertices[i][j],
-                                                           vertices[i][(j+1)%3],
-                                                           vertices[i][(j+2)%3]);
-                            if (currentAngle < smallestAngle) {
-                                smallestAngle = currentAngle;
-                            }
-                        }
-                    }
-                    let newSmallestAngle = Infinity;
-                    for (let i = 0; i < 2; i++) {
-                        let currentAngle = Math.min(
-                            this.angle3(vertices[  i][0], vertices[1-i][2], vertices[  i][2]),
-                            this.angle3(vertices[1-i][2], vertices[  i][2], vertices[  i][0]),
-                            this.angle3(vertices[  i][2], vertices[  i][0], vertices[1-i][2]));
-                        if (currentAngle < newSmallestAngle) {
-                            newSmallestAngle = currentAngle;
-                        }
-                    }
-                    if (newSmallestAngle <= smallestAngle) {
+                    if (this.angle3(positions[0][1], positions[0][2], positions[0][0]) +
+                        this.angle3(positions[1][1], positions[1][2], positions[1][0]) < Math.PI) {
                         // Rotating this edge would not be an improvement.
                         continue;
                     }
-                    if (!equalNormals(new THREE.Triangle(vertices[0][0], vertices[1][2], vertices[0][2]).normal(),
-                                      normals[0])) {
-                        // Mustn't flip the face around.
-                        continue;
-                    }
-                    if (!equalNormals(new THREE.Triangle(vertices[1][0], vertices[0][2], vertices[1][2]).normal(),
-                                      normals[1])) {
+                    if (!equalNormals(normals[0], normals[1])) {
                         // Mustn't flip the face around.
                         continue;
                     }

@@ -818,16 +818,10 @@ class ConnectedSTL {
                         islandSplitEdgesMap.set(edge, nextEdge);
                     }
                 }
-                console.log("new island");
                 // Find an edge leading to another edge that is on the
                 // convex hull.
                 while (islandSplitEdgesMap.size > 0) {
-                    console.log("starting over " + islandSplitEdgesMap.size);
                     for (let [splitEdge, [previousSplitEdge, nextSplitEdge]] of islandSplitEdgesMap) {
-                        if (!islandSplitEdgesMap.has(splitEdge)) {
-                            console.log("previously removed");
-                            continue;
-                        }
                         // Does this edge have a split edge connecting to it?
                         if (!Number.isInteger(nextSplitEdge)) {
                             // This edge doesn't have a suitable next edge.

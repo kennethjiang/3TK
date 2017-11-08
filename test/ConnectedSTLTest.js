@@ -3,9 +3,18 @@ import { expect } from 'chai';
 import fs from 'fs';
 import * as THREE from 'three';
 
+
+// Tests of ConnectedSTL.  To run:
+// npm test
+// To run with large tests and also write outputs:
+// env INCLUDE_LARGE_TESTS=1 WRITE_TEST_OUTPUTS=1 npm test
+// To run just the cubes tests:
+// npm test -- --grep "cubes"
+// To run just the Big test with chome://inspect debugger:
+// env INCLUDE_LARGE_TESTS=1 npm test -- "--grep" "Big" --inspect --debug-brk
 describe("ConnectedSTL", function() {
     describe("isolatedBufferGeometries", function() {
-        let testFile = function (filename, expectedGeometriesCount, writeShapes = true) {
+        let testFile = function (filename, expectedGeometriesCount, writeShapes = process.env.WRITE_TEST_OUTPUTS) {
             // Test that the number of shapes is as expected.
             let stl = fs.readFileSync("test/" + filename + ".stl", {encoding: "binary"});
             let geometry = new STLLoader().parse(stl);
@@ -17,7 +26,7 @@ describe("ConnectedSTL", function() {
                     let mesh = new THREE.Mesh(newGeometries[i]);
                     let obj = new THREE.Object3D();
                     obj.add(mesh);
-                    fs.writeFileSync("old" + i + ".stl", new Buffer(new STLExporter().parse(obj)), 'ascii');
+                    fs.writeFileSync(filename + "_old" + i + ".stl", new Buffer(new STLExporter().parse(obj)), 'ascii');
                 }
             }
 
@@ -91,6 +100,7 @@ describe("ConnectedSTL", function() {
         });
 
         it("Hollow Cube", function() {
+            // We'd prefer this to be just 1 object.
             testFile("hollow_cube", 2);
         });
 
@@ -140,11 +150,17 @@ describe("ConnectedSTL", function() {
         });
 
         it("Big object: Dinosaur Jump", function() {
+            if (!process.env.INCLUDE_LARGE_TESTS) {
+                this.skip();
+            }
             this.timeout(0);
             testFile("DINOSAUR_JUMP", 1);
         });
 
         it("Non-manifold object", function () {
+            if (!process.env.INCLUDE_LARGE_TESTS) {
+                this.skip();
+            }
             this.timeout(0);
             let stl = fs.readFileSync("test/egg_with_holes.stl", {encoding: "binary"});
             let geometry = new STLLoader().parse(stl);
@@ -157,6 +173,9 @@ describe("ConnectedSTL", function() {
         });
 
         it("dino jump just merge", function () {
+            if (!process.env.INCLUDE_LARGE_TESTS) {
+                this.skip();
+            }
             this.timeout(30000);
             let stl = fs.readFileSync("test/DINOSAUR_JUMP.stl", {encoding: "binary"});
             let geometry = new STLLoader().parse(stl);
@@ -171,6 +190,9 @@ describe("ConnectedSTL", function() {
         });
 
         it("dino jump retriangle", function () {
+            if (!process.env.INCLUDE_LARGE_TESTS) {
+                this.skip();
+            }
             this.timeout(30000);
             let stl = fs.readFileSync("test/DINOSAUR_JUMP.stl", {encoding: "binary"});
             let geometry = new STLLoader().parse(stl);

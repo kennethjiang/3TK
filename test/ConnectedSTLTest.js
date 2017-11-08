@@ -90,6 +90,14 @@ describe("ConnectedSTL", function() {
             testFile("plus", 1);
         });
 
+        it("Hollow Cube", function() {
+            testFile("hollow_cube", 2);
+        });
+
+        it("Cup", function() {
+            testFile("cup", 1);
+        });
+
         it("Stairs", function() {
             testFile("stairs", 1);
         });

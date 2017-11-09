@@ -12,6 +12,10 @@ import * as THREE from 'three';
 // npm test -- --grep "cubes"
 // To run just the Big test with chome://inspect debugger:
 // env INCLUDE_LARGE_TESTS=1 npm test -- "--grep" "Big" --inspect --debug-brk
+
+const equalNormals = function (v0, v1) {
+    return v0.angleTo(v1) < Math.PI/180*0.0001;
+};
 describe("ConnectedSTL", function() {
     describe("isolatedBufferGeometries", function() {
         let testFile = function (filename, expectedGeometriesCount, writeShapes = process.env.WRITE_TEST_OUTPUTS) {
@@ -69,7 +73,7 @@ describe("ConnectedSTL", function() {
             expect(newGeometries.length).to.equal(expectedGeometriesCount);
 
             // Merging faces should not affect the number of shapes.
-            connectedSTL.mergeFaces();
+            connectedSTL.mergeFaces(equalNormals);
             if (writeShapes) {
                 let mesh = new THREE.Mesh(connectedSTL.bufferGeometry());
                 let obj = new THREE.Object3D();
@@ -83,14 +87,20 @@ describe("ConnectedSTL", function() {
                 new THREE.Vector3(1,0,0), -((boundingBox.max.x + boundingBox.min.x*3)/4)));
             for (let i = 0; i < newConnectedSTLs.length; i++) {
                 let newConnectedSTL = newConnectedSTLs[i];
-                newConnectedSTL.mergeFaces();
-                newConnectedSTL.retriangle(
-                    Array.from(new Array(newConnectedSTL.positions.length/9).keys()));
+                newConnectedSTL.mergeFaces(equalNormals);
+                newConnectedSTL.retriangle(equalNormals);
                 if (writeShapes) {
                     let mesh = new THREE.Mesh(newConnectedSTL.bufferGeometry());
                     let obj = new THREE.Object3D();
                     obj.add(mesh);
                     fs.writeFileSync(filename + "_chop" + i + ".stl", new Buffer(new STLExporter().parse(obj)), 'ascii');
+                    newGeometries = newConnectedSTL.isolatedBufferGeometries(geometry);
+                    for (let j = 0; j < newGeometries.length; j++) {
+                        let mesh = new THREE.Mesh(newGeometries[j]);
+                        let obj = new THREE.Object3D();
+                        obj.add(mesh);
+                        fs.writeFileSync(filename + "_new" + i + "_" + j + ".stl", new Buffer(new STLExporter().parse(obj)), 'ascii');
+                    }
                 }
             }
         }

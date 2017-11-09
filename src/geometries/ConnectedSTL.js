@@ -21,6 +21,7 @@ class ConnectedSTL {
         this.faceNormalVector3s = [new THREE.Vector3(),
                                    new THREE.Vector3(),
                                    new THREE.Vector3()];
+        this.faceNormalTriangle = new THREE.Triangle();
         this.vertexLeft = new THREE.Vector3();
         this.vertexMiddle = new THREE.Vector3();
         this.vertexRight = new THREE.Vector3();
@@ -490,7 +491,7 @@ class ConnectedSTL {
     // Returns the unit normal of a triangular face.
     faceNormal(faceIndex) {
         let positions = this.positionsFromFace(faceIndex, 0);
-        return new THREE.Triangle(...this.vector3sFromPositions(positions, this.faceNormalVector3s)).normal();
+        return this.faceNormalTriangle.set(...this.vector3sFromPositions(positions, this.faceNormalVector3s)).normal();
     }
 
     // Split all edges in this geometry so that there are no edges

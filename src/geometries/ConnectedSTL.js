@@ -35,6 +35,12 @@ class ConnectedSTL {
         return newConnectedSTL;
     }
 
+    *range(x) {
+        for (let i = 0; i < x; i++) {
+            yield i;
+        }
+    }
+    
     // Uses only the positions from a THREE.BufferGeometry.
     fromBufferGeometry(bufferGeometry) {
         this.positions = Array.from(bufferGeometry.getAttribute('position').array);
@@ -942,6 +948,7 @@ class ConnectedSTL {
     // The faces that collpase to degenerates need to later be removed.
     mergeFaces(equalNormals = function(x, y) { return x.equals(y); }) {
         const faceCount = this.positions.length / 9;
+        this.removeDegenerates(this.range(faceCount));
         let facesMerged = 0;
         let previousFacesMerged = 0;
         do {

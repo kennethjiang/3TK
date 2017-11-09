@@ -88,7 +88,7 @@ describe("ConnectedSTL", function() {
             for (let i = 0; i < newConnectedSTLs.length; i++) {
                 let newConnectedSTL = newConnectedSTLs[i];
                 newConnectedSTL.mergeFaces(equalNormals);
-                newConnectedSTL.retriangle(equalNormals);
+                newConnectedSTL.retriangle(Array.from(new Array(newConnectedSTL.positions.length/9).keys()), equalNormals);
                 if (writeShapes) {
                     let mesh = new THREE.Mesh(newConnectedSTL.bufferGeometry());
                     let obj = new THREE.Object3D();
@@ -167,7 +167,7 @@ describe("ConnectedSTL", function() {
             testFile("DINOSAUR_JUMP", 1);
         });
 
-        it("Non-manifold object", function () {
+        it("Non-manifold egg just fixHoles", function () {
             if (!process.env.INCLUDE_LARGE_TESTS) {
                 this.skip();
             }
@@ -199,7 +199,7 @@ describe("ConnectedSTL", function() {
             fs.writeFileSync("DINOSAUR_JUMP_merged.stl", new Buffer(new STLExporter().parse(obj)), 'ascii');
         });
 
-        it("dino jump retriangle", function () {
+        it("dino jump just retriangle", function () {
             if (!process.env.INCLUDE_LARGE_TESTS) {
                 this.skip();
             }
@@ -213,6 +213,27 @@ describe("ConnectedSTL", function() {
             let obj = new THREE.Object3D();
             obj.add(mesh);
             fs.writeFileSync("DINOSAUR_JUMP_retriangle.stl", new Buffer(new STLExporter().parse(obj)), 'ascii');
+        });
+
+        it("dino jump just chop", function () {
+            if (!process.env.INCLUDE_LARGE_TESTS) {
+                this.skip();
+            }
+            this.timeout(0);
+            let stl = fs.readFileSync("test/DINOSAUR_JUMP.stl", {encoding: "binary"});
+            let geometry = new STLLoader().parse(stl);
+            geometry.computeBoundingBox();
+            let boundingBox = geometry.boundingBox;
+            let connectedSTL = new ConnectedSTL().fromBufferGeometry(geometry);
+            connectedSTL.retriangle(
+                Array.from(new Array(connectedSTL.positions.length/9).keys()));
+            let newConnectedSTLs = connectedSTL.chop(new THREE.Plane(
+                new THREE.Vector3(1,0,0), -((boundingBox.max.x + boundingBox.min.x*3)/4)));
+            for (let i = 0; i < newConnectedSTLs.length; i++) {
+                let newConnectedSTL = newConnectedSTLs[i];
+                newConnectedSTL.mergeFaces(equalNormals);
+                newConnectedSTL.retriangle(Array.from(new Array(newConnectedSTL.positions.length/9).keys()), equalNormals);
+            }
         });
     });
 });

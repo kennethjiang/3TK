@@ -828,19 +828,17 @@ class ConnectedSTL {
                 // is nextSplitEdge's next, nextSplitEdge, and
                 // splitEdge.
 
-                let allPoints = [];
-                let allPointsKeys = new Set();
                 // Make a list of all points that might be inside this face.
-                for (let edge of splitEdgesMap.keys()) {
-                    for (let pos of [edge,
-                                     this.nextPositionInFace(edge)]) {
-                        if (!allPointsKeys.has(this.keyForTrio(pos))) {
-                            allPointsKeys.add(this.keyForTrio(pos));
-                            allPoints.push(pos);
+                let self = this;
+                let allPoints = function* () {
+                    for (let edge of splitEdgesMap.keys()) {
+                        for (let pos of [edge,
+                                         self.nextPositionInFace(edge)]) {
+                            yield pos;
                         }
                     }
-                }
-                if (!this.positionsInSameHemisphere(nextSplitEdge, allPoints)) {
+                };
+                if (!this.positionsInSameHemisphere(nextSplitEdge, allPoints())) {
                     // This isn't part of the convex hull.
                     continue;
                 }
@@ -851,7 +849,7 @@ class ConnectedSTL {
                 let newVertices = [this.vector3FromPosition(this.nextPositionInFace(nextSplitEdge)),
                                    this.vector3FromPosition(nextSplitEdge),
                                    this.vector3FromPosition(splitEdge)];
-                for (let pos of allPoints) {
+                for (let pos of allPoints()) {
                     let maybeInsidePoint = this.vector3FromPosition(pos, maybeInsidePoint);
                     let match = false;
                     for (let v of newVertices) {

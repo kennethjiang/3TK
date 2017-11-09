@@ -832,10 +832,8 @@ class ConnectedSTL {
                 let self = this;
                 let allPoints = function* () {
                     for (let edge of splitEdgesMap.keys()) {
-                        for (let pos of [edge,
-                                         self.nextPositionInFace(edge)]) {
-                            yield pos;
-                        }
+                        yield edge;
+                        yield self.nextPositionInFace(edge);
                     }
                 };
                 if (!this.positionsInSameHemisphere(nextSplitEdge, allPoints())) {

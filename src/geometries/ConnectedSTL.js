@@ -818,8 +818,21 @@ class ConnectedSTL {
     // doubly-linked list.
     fixPlanarHole(splitEdgesMap) {
         // Loop until all the plane is sealed.
+        let preferredSplitEdges = [];
         while (splitEdgesMap.size > 0) {
-            for (let [splitEdge, [previousSplitEdge, nextSplitEdge]] of splitEdgesMap) {
+            // Yields all the splitEdgesMap with preference for those
+            // that are most likely to be on the convex hull.
+            let splitEdgesToCheck = function* () {
+                for (let splitEdge of preferredSplitEdges.filter((x) => splitEdgesMap.has(x))) {
+                    yield [splitEdge, splitEdgesMap.get(splitEdge)];
+                }
+                for (let splitEdge of splitEdgesMap.keys()) {
+                    if (splitEdgesMap.has(splitEdge)) {
+                        yield [splitEdge, splitEdgesMap.get(splitEdge)];
+                    }
+                }
+            }
+            for (let [splitEdge, [previousSplitEdge, nextSplitEdge]] of splitEdgesToCheck()) {
                 if (!Number.isInteger(nextSplitEdge)) {
                     // This edge doesn't have a suitable next edge.
                     continue;
@@ -875,6 +888,12 @@ class ConnectedSTL {
                     splitEdgesMap.set(newPosition+i, [this.previousPositionInFace(newPosition+i),
                                                       this.nextPositionInFace(newPosition+i)]);
                 }
+                // These are the edges that we should try first next time.
+                preferredSplitEdges = [
+                    splitEdge,
+                    previousSplitEdge,
+                    newPosition+6,
+                ];
                 // Connect all unconnectedEdges that can be connected.
                 for (let newUnconnectedEdge of [newPosition, newPosition+3, newPosition+6]) {
                     let connectionCount = 0;
@@ -902,6 +921,7 @@ class ConnectedSTL {
                         }
                     }
                 }
+                break;
             }
         }
     }

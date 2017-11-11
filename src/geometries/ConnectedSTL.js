@@ -819,6 +819,90 @@ class ConnectedSTL {
         return new Map(list);
     }
 
+    // This is used by fixPlanarHole to find a face that we can make
+    // that will be on the convex hull of the split edges.
+    findConvexHullSplitEdge(splitEdgesMap) {
+        let v0 = new THREE.Vector3();
+        let v1 = new THREE.Vector3();
+        // Sort the splitEdgesMap because it makes the search for convex hull faster.
+        splitEdgesMap = this.sortMap(splitEdgesMap, (kv0, kv1) => {
+            v0 = this.vector3FromPosition(kv0[1][1], v0);
+            v1 = this.vector3FromPosition(kv1[1][1], v1);
+            if (v0.x != v1.x) {
+                return v0.x - v1.x;
+            }
+            if (v0.y != v1.y) {
+                return v0.y - v1.y;
+            }
+            return v0.z - v1.z;
+        });
+        // Find an edge on the convex hull of the chop.
+        let hullSplitEdge = null;
+        for (let [splitEdge, [previousSplitEdge, nextSplitEdge]] of splitEdgesMap) {
+            if(!Number.isInteger(nextSplitEdge)) {
+                // This edge doesn't have a suitable next edge.
+                continue;
+            }
+            // The face that we will portentially create
+            // is nextSplitEdge's next, nextSplitEdge, and
+            // splitEdge.
+            let normal = this.faceNormalFromPositions([this.nextPositionInFace(nextSplitEdge),
+                                                       nextSplitEdge,
+                                                       splitEdge]);
+            if (normal.length() < 0.5) {
+                // Colinear triangle, no normal.
+                continue;
+            }
+            // Make an iterator of all endpoints from all edges.
+            let self = this;
+            let allPoints = function* () {
+                for (let edge of splitEdgesMap.keys()) {
+                    yield edge;
+                    yield self.nextPositionInFace(edge);
+                }
+            };
+            if (!this.positionsInSameHemisphere(nextSplitEdge, allPoints())) {
+                // This isn't part of the convex hull.
+                continue;
+            }
+            // Found a convex hull splitEdge for making a face.
+            return splitEdge;
+        }
+    }
+
+    // Given 3 vertices and splitEdges, makes a triangle that has none
+    // of the splitEdges' endpoints in the triangle.  This modifies the vertices[2] in-place.
+    makeTriangleWithNoInsidePoints(vertices, splitEdgesMap) {
+         // Make a list of all points that might be inside this face.
+        let self = this;
+        let allPoints = function* () {
+            for (let edge of splitEdgesMap.keys()) {
+                yield edge;
+                yield self.nextPositionInFace(edge);
+            }
+        };
+        // Are there any points in this triangle?  If so, one will
+        // replace the third vertex of the new face.
+        let maybeInsidePoint = new THREE.Vector3();
+        for (let pos of allPoints()) {
+            let maybeInsidePoint = this.vector3FromPosition(pos, maybeInsidePoint);
+            let match = false;
+            for (let v of vertices) {
+                if (maybeInsidePoint.equals(v)) {
+                    match = true;
+                    break;
+                }
+            }
+            if (match) {
+                continue; // Doesn't count as being inside.
+            }
+            if (this.pointInTriangle(maybeInsidePoint, vertices)) {
+                // Make a smaller triangle using this inside point.
+                vertices[2].copy(maybeInsidePoint);
+            }
+        }
+    }
+
     // Fixes a hole that is entirely in a plane, such as one made from
     // splitting a shape along a plane.
     //
@@ -826,65 +910,18 @@ class ConnectedSTL {
     // the values are a pair of the edges.  The first edge points to
     // this edge and the second edge is the edge pointed to, like a
     // doubly-linked list.
-    fixPlanarHole(unsortedSplitEdgesMap) {
-        // Sort the splitEdgesMap because it makes the search for convex hull faster.
-        let v0 = new THREE.Vector3();
-        let v1 = new THREE.Vector3();
-        let splitEdgesMap = unsortedSplitEdgesMap;
+    fixPlanarHole(splitEdgesMap) {
         let newVertices = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
         // Loop until all the plane is sealed.
         while (splitEdgesMap.size > 0) {
-            splitEdgesMap = this.sortMap(splitEdgesMap, (kv0, kv1) => {
-                v0 = this.vector3FromPosition(kv0[1][1], v0);
-                v1 = this.vector3FromPosition(kv1[1][1], v1);
-                if (v0.x != v1.x) {
-                    return v0.x - v1.x;
-                }
-                if (v0.y != v1.y) {
-                    return v0.y - v1.y;
-                }
-                return v0.z - v1.z;
-            });
-            // Find an edge on the convex hull of the chop.
-            let hullSplitEdge = null;
-            let hullNormal = null;
-            for (let [splitEdge, [previousSplitEdge, nextSplitEdge]] of splitEdgesMap) {
-                if(!Number.isInteger(nextSplitEdge)) {
-                    // This edge doesn't have a suitable next edge.
-                    continue;
-                }
-                // The face that we will portentially create
-                // is nextSplitEdge's next, nextSplitEdge, and
-                // splitEdge.
-                let normal = this.faceNormalFromPositions([this.nextPositionInFace(nextSplitEdge),
-                                                           nextSplitEdge,
-                                                           splitEdge]);
-                if (normal.length() < 0.5) {
-                    // Colinear triangle, no normal.
-                    continue;
-                }
-
-                // Make a list of all points.
-                let self = this;
-                let allPoints = function* () {
-                    for (let edge of splitEdgesMap.keys()) {
-                        yield edge;
-                        yield self.nextPositionInFace(edge);
-                    }
-                };
-                if (!this.positionsInSameHemisphere(nextSplitEdge, allPoints())) {
-                    // This isn't part of the convex hull.
-                    continue;
-                }
-                // Found a potential face on the convex hull.
-                hullSplitEdge = splitEdge;
-                hullNormal = normal;
-                break;
-            }
-            let holeSplitEdges = new Set();
+            let hullSplitEdge = this.findConvexHullSplitEdge(splitEdgesMap);
+            let hullNormal = this.faceNormalFromPositions([this.nextPositionInFace(splitEdgesMap.get(hullSplitEdge)[1]),
+                                                           splitEdgesMap.get(hullSplitEdge)[1],
+                                                           hullSplitEdge]);
             // Find all the splitEdges of this hole, in both
             // directions in case the shape wasn't originally
             // manifold.
+            let holeSplitEdges = new Set();
             for (let splitEdge = hullSplitEdge; !holeSplitEdges.has(splitEdge); splitEdge = splitEdgesMap.get(splitEdge)[1]) {
                 holeSplitEdges.add(splitEdge);
             }
@@ -916,35 +953,7 @@ class ConnectedSTL {
                         // This face is facing the wrong way.
                         continue;
                     }
-                    // Make a list of all points that might be inside this face.
-                    let self = this;
-                    let allPoints = function* () {
-                        for (let edge of splitEdgesMap.keys()) {
-                            yield edge;
-                            yield self.nextPositionInFace(edge);
-                        }
-                    };
-                    // Are there any points in this triangle?  If
-                    // so, one will replace the third vertex of
-                    // the new face.
-                    let maybeInsidePoint = new THREE.Vector3();
-                    for (let pos of allPoints()) {
-                        let maybeInsidePoint = this.vector3FromPosition(pos, maybeInsidePoint);
-                        let match = false;
-                        for (let v of newVertices) {
-                            if (maybeInsidePoint.equals(v)) {
-                                match = true;
-                                break;
-                            }
-                        }
-                        if (match) {
-                            continue; // Doesn't count as being inside.
-                        }
-                        if (this.pointInTriangle(maybeInsidePoint, newVertices)) {
-                            // Make a smaller triangle using this inside point.
-                            newVertices[2].copy(maybeInsidePoint);
-                        }
-                    }
+                    this.makeTriangleWithNoInsidePoints(newVertices, splitEdgesMap);
                     // Add the new face to the positions.
                     let newPosition = this.positions.length;
                     for (let vertex of newVertices) {

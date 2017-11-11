@@ -227,11 +227,6 @@ describe("ConnectedSTL", function() {
             let connectedSTL = new ConnectedSTL().fromBufferGeometry(geometry);
             let newConnectedSTLs = connectedSTL.chop(new THREE.Plane(
                 new THREE.Vector3(1,0,0), -((boundingBox.max.x + boundingBox.min.x*3)/4)));
-            for (let i = 0; i < newConnectedSTLs.length; i++) {
-                let newConnectedSTL = newConnectedSTLs[i];
-                newConnectedSTL.mergeFaces(equalNormals);
-                newConnectedSTL.retriangle(Array.from(new Array(newConnectedSTL.positions.length/9).keys()), equalNormals);
-            }
         });
     });
 });

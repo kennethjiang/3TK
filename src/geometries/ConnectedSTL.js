@@ -35,10 +35,15 @@ class ConnectedSTL {
         return newConnectedSTL;
     }
 
-    *range(x) {
-        for (let i = 0; i < x; i++) {
-            yield i;
-        }
+    range(x) {
+        // eslint should allow Symbol
+        /* global Symbol */
+        return {[Symbol.iterator]:
+                function* () {
+                    for (let i = 0; i < x; i++) {
+                        yield i;
+                    }
+                }};
     }
 
     // Uses only the positions from a THREE.BufferGeometry.
@@ -47,7 +52,7 @@ class ConnectedSTL {
         if (!this.findNeighbors()) {
             return null;
         }
-        this.removeDegenerates(Array.from(new Array(this.positions.length/9).keys()));
+        this.removeDegenerates(this.range(this.positions.length/9));
         this.deleteDegenerates();
         return this;
     }
@@ -441,19 +446,8 @@ class ConnectedSTL {
     roundToFloat32() {
         // First round all vertices to floats.
         this.positions = Array.from(new Float32Array(this.positions));
-        let equalNormals = function (vertex0, vertex1) {
-            let coordinates = Array.from(new Float32Array([vertex0.x,
-                                                           vertex0.y,
-                                                           vertex0.z,
-                                                           vertex1.x,
-                                                           vertex1.y,
-                                                           vertex1.z]));
-            return (coordinates[0] == coordinates[3] &&
-                    coordinates[1] == coordinates[4] &&
-                    coordinates[2] == coordinates[5]);
-        };
         // Remove all degenerate triangles where the normal is 0 when rounded to float.
-        this.removeDegenerates(Array.from(new Array(this.positions.length/9).keys()), equalNormals);
+        this.removeDegenerates(this.range(this.positions.length/9));
         // Remove all the triangles that aren't part of any shapes anymore.
         this.deleteDegenerates();
     }
@@ -1010,6 +1004,7 @@ class ConnectedSTL {
     // where they were choped.
     chop(plane) {
         let splitPositions = this.splitFaces(plane);
+
         let newConnectedSTLs = this.disconnectAtSplit(plane, splitPositions);
         for (let newConnectedSTL of newConnectedSTLs) {
             let splitEdgesMap = newConnectedSTL.findEdgesInPlane(splitPositions);
@@ -1092,7 +1087,8 @@ class ConnectedSTL {
                             faces.push(this.faceFromPosition(currentPosition));
                             currentPosition = this.getNeighborPosition(nextPosition);
                         } while (currentPosition != startPosition);
-                        this.removeDegenerates(faces, equalNormals);
+                        this.removeDegenerates(faces);
+                        this.deleteDegenerates();
                     }
                 }
             }
@@ -1101,14 +1097,14 @@ class ConnectedSTL {
         return facesMerged;
     }
 
-    removeDegenerates(faces, equalNormals = function(x, y) { return x.equals(y); }) {
+    removeDegenerates(faces) {
         let previousTotalDegeneratesRemoved = 0;
         let totalDegeneratesRemoved = 0;
         let degeneratesRemoved = 0;
         do {
             previousTotalDegeneratesRemoved = totalDegeneratesRemoved;
             totalDegeneratesRemoved += this.removeDegenerates0Angle(faces);
-            totalDegeneratesRemoved += this.removeDegenerates180Angle(faces, equalNormals);
+            totalDegeneratesRemoved += this.removeDegenerates180Angle(faces);
         } while(previousTotalDegeneratesRemoved != totalDegeneratesRemoved);
         return totalDegeneratesRemoved;
     }
@@ -1228,10 +1224,6 @@ class ConnectedSTL {
                     if (this.angle3(positions[0][1], positions[0][2], positions[0][0]) +
                         this.angle3(positions[1][1], positions[1][2], positions[1][0]) < Math.PI) {
                         // Rotating this edge would not be an improvement.
-                        continue;
-                    }
-                    if (!equalNormals(normals[0], normals[1])) {
-                        // Mustn't flip the face around.
                         continue;
                     }
                     this.rotateEdge(positions[0][0]);
@@ -1402,10 +1394,10 @@ class ConnectedSTL {
     }
 
     // Reconnect faces with a normal of 0 due to a 180 degree angle so
-    // that the output will have only faces with normal non-zero.  We
-    // check if the normal is 0 as a 32-bit float.
-    removeDegenerates180Angle(faces, equalNormals = function(x, y) { return x.equals(y); }) {
+    // that the output will have only faces with normal non-zero.
+    removeDegenerates180Angle(faces) {
         let degeneratesRemoved = 0;
+        const zeroVector = new THREE.Vector3(0,0,0);
         for (let faceIndex of faces) {
             if (!Number.isInteger(this.reverseIslands[faceIndex]) ||
                 this.isFaceDegenerate(faceIndex)) {
@@ -1419,7 +1411,7 @@ class ConnectedSTL {
             let vertices = [];
             vertices[0] = this.vector3sFromPositions(positions[0]);
             let normal = new THREE.Triangle(...vertices[0]).normal();
-            if (!equalNormals(normal, new THREE.Vector3(0,0,0))) {
+            if (!normal.equals(zeroVector)) {
                 // Nothing to do.
                 continue;
             }

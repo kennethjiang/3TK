@@ -40,7 +40,7 @@ class ConnectedSTL {
             yield i;
         }
     }
-    
+
     // Uses only the positions from a THREE.BufferGeometry.
     fromBufferGeometry(bufferGeometry) {
         this.positions = Array.from(bufferGeometry.getAttribute('position').array);
@@ -494,10 +494,13 @@ class ConnectedSTL {
         }
     }
 
+    faceNormalFromPositions(positions) {
+        return this.faceNormalTriangle.set(...this.vector3sFromPositions(positions, this.faceNormalVector3s)).normal();
+    }
+
     // Returns the unit normal of a triangular face.
     faceNormal(faceIndex) {
-        let positions = this.positionsFromFace(faceIndex, 0);
-        return this.faceNormalTriangle.set(...this.vector3sFromPositions(positions, this.faceNormalVector3s)).normal();
+        return this.faceNormalFromPositions(this.positionsFromFace(faceIndex, 0));
     }
 
     // Split all edges in this geometry so that there are no edges
@@ -809,6 +812,13 @@ class ConnectedSTL {
         return splitEdgesMap;
     }
 
+    sortMap(map, f) {
+        // Sorts the insertion order of a map.
+        let list = Array.from(map);
+        list.sort(f);
+        return new Map(list);
+    }
+
     // Fixes a hole that is entirely in a plane, such as one made from
     // splitting a shape along a plane.
     //
@@ -816,32 +826,45 @@ class ConnectedSTL {
     // the values are a pair of the edges.  The first edge points to
     // this edge and the second edge is the edge pointed to, like a
     // doubly-linked list.
-    fixPlanarHole(splitEdgesMap) {
+    fixPlanarHole(unsortedSplitEdgesMap) {
+        // Sort the splitEdgesMap because it makes the search for convex hull faster.
+        let v0 = new THREE.Vector3();
+        let v1 = new THREE.Vector3();
+        let splitEdgesMap = unsortedSplitEdgesMap;
+        let newVertices = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
         // Loop until all the plane is sealed.
-        let preferredSplitEdges = [];
         while (splitEdgesMap.size > 0) {
-            // Yields all the splitEdgesMap with preference for those
-            // that are most likely to be on the convex hull.
-            let splitEdgesToCheck = function* () {
-                for (let splitEdge of preferredSplitEdges.filter((x) => splitEdgesMap.has(x))) {
-                    yield [splitEdge, splitEdgesMap.get(splitEdge)];
+            splitEdgesMap = this.sortMap(splitEdgesMap, (kv0, kv1) => {
+                v0 = this.vector3FromPosition(kv0[1][1], v0);
+                v1 = this.vector3FromPosition(kv1[1][1], v1);
+                if (v0.x != v1.x) {
+                    return v0.x - v1.x;
                 }
-                for (let splitEdge of splitEdgesMap.keys()) {
-                    if (splitEdgesMap.has(splitEdge)) {
-                        yield [splitEdge, splitEdgesMap.get(splitEdge)];
-                    }
+                if (v0.y != v1.y) {
+                    return v0.y - v1.y;
                 }
-            }
-            for (let [splitEdge, [previousSplitEdge, nextSplitEdge]] of splitEdgesToCheck()) {
-                if (!Number.isInteger(nextSplitEdge)) {
+                return v0.z - v1.z;
+            });
+            // Find an edge on the convex hull of the chop.
+            let hullSplitEdge = null;
+            let hullNormal = null;
+            for (let [splitEdge, [previousSplitEdge, nextSplitEdge]] of splitEdgesMap) {
+                if(!Number.isInteger(nextSplitEdge)) {
                     // This edge doesn't have a suitable next edge.
                     continue;
                 }
                 // The face that we will portentially create
                 // is nextSplitEdge's next, nextSplitEdge, and
                 // splitEdge.
+                let normal = this.faceNormalFromPositions([this.nextPositionInFace(nextSplitEdge),
+                                                           nextSplitEdge,
+                                                           splitEdge]);
+                if (normal.length() < 0.5) {
+                    // Colinear triangle, no normal.
+                    continue;
+                }
 
-                // Make a list of all points that might be inside this face.
+                // Make a list of all points.
                 let self = this;
                 let allPoints = function* () {
                     for (let edge of splitEdgesMap.keys()) {
@@ -853,71 +876,118 @@ class ConnectedSTL {
                     // This isn't part of the convex hull.
                     continue;
                 }
-                // Are there any points in this triangle?  If
-                // so, one will replace the third vertex of
-                // the new face.
-                let maybeInsidePoint = new THREE.Vector3();
-                let newVertices = [this.vector3FromPosition(this.nextPositionInFace(nextSplitEdge)),
-                                   this.vector3FromPosition(nextSplitEdge),
-                                   this.vector3FromPosition(splitEdge)];
-                for (let pos of allPoints()) {
-                    let maybeInsidePoint = this.vector3FromPosition(pos, maybeInsidePoint);
-                    let match = false;
-                    for (let v of newVertices) {
-                        if (maybeInsidePoint.equals(v)) {
-                            match = true;
+                // Found a potential face on the convex hull.
+                hullSplitEdge = splitEdge;
+                hullNormal = normal;
+                break;
+            }
+            let holeSplitEdges = new Set();
+            // Find all the splitEdges of this hole, in both
+            // directions in case the shape wasn't originally
+            // manifold.
+            for (let splitEdge = hullSplitEdge; !holeSplitEdges.has(splitEdge); splitEdge = splitEdgesMap.get(splitEdge)[1]) {
+                holeSplitEdges.add(splitEdge);
+            }
+            for (let splitEdge = hullSplitEdge; !holeSplitEdges.has(splitEdge); splitEdge = splitEdgesMap.get(splitEdge)[0]) {
+                holeSplitEdges.add(splitEdge);
+            }
+            // Now we seal all edges from the holeSplitEdges such that
+            // the normal matches the hull normal.
+            while (holeSplitEdges.size > 0) {
+                for (let splitEdge of holeSplitEdges) {
+                    let [previousSplitEdge, nextSplitEdge] = splitEdgesMap.get(splitEdge);
+                    if (!Number.isInteger(nextSplitEdge)) {
+                        // This edge doesn't have a suitable next edge.
+                        continue;
+                    }
+                    // The face that we will portentially create
+                    // is nextSplitEdge's next, nextSplitEdge, and
+                    // splitEdge.
+                    newVertices = this.vector3sFromPositions([this.nextPositionInFace(nextSplitEdge),
+                                                              nextSplitEdge,
+                                                              splitEdge],
+                                                             newVertices);
+                    let normal = this.faceNormalFromPositions([this.nextPositionInFace(nextSplitEdge),
+                                                               nextSplitEdge,
+                                                               splitEdge]);
+                    // Don't compare for == 4 because of floating point
+                    // rounding issues.
+                    if (normal.distanceToSquared(hullNormal) > 3) {
+                        // This face is facing the wrong way.
+                        continue;
+                    }
+                    // Make a list of all points that might be inside this face.
+                    let self = this;
+                    let allPoints = function* () {
+                        for (let edge of splitEdgesMap.keys()) {
+                            yield edge;
+                            yield self.nextPositionInFace(edge);
+                        }
+                    };
+                    // Are there any points in this triangle?  If
+                    // so, one will replace the third vertex of
+                    // the new face.
+                    let maybeInsidePoint = new THREE.Vector3();
+                    for (let pos of allPoints()) {
+                        let maybeInsidePoint = this.vector3FromPosition(pos, maybeInsidePoint);
+                        let match = false;
+                        for (let v of newVertices) {
+                            if (maybeInsidePoint.equals(v)) {
+                                match = true;
+                                break;
+                            }
+                        }
+                        if (match) {
+                            continue; // Doesn't count as being inside.
+                        }
+                        if (this.pointInTriangle(maybeInsidePoint, newVertices)) {
+                            // Make a smaller triangle using this inside point.
+                            newVertices[2].copy(maybeInsidePoint);
                         }
                     }
-                    if (match) {
-                        continue; // Doesn't count as being inside.
+                    // Add the new face to the positions.
+                    let newPosition = this.positions.length;
+                    for (let vertex of newVertices) {
+                        this.positions.push(vertex.x,
+                                            vertex.y,
+                                            vertex.z);
                     }
-                    if (this.pointInTriangle(maybeInsidePoint, newVertices)) {
-                        // Make a small triangle using this inside point.
-                        newVertices[2].copy(maybeInsidePoint);
+                    // Add all the edges of the new face to the
+                    // splitEdges as unconnected.  Also add to the
+                    // current holeSplitEdges.
+                    for (let i = 0; i < 9; i+=3) {
+                        splitEdgesMap.set(newPosition+i, [this.previousPositionInFace(newPosition+i),
+                                                          this.nextPositionInFace(newPosition+i)]);
+                        holeSplitEdges.add(newPosition+i);
                     }
-                }
-                // Add the new face to the positions.
-                let newPosition = this.positions.length;
-                for (let vertex of newVertices) {
-                    this.positions.push(vertex.x,
-                                        vertex.y,
-                                        vertex.z);
-                }
-                // Add all the edges of the new face to the splitEdges as unconnected.
-                for (let i = 0; i < 9; i+=3) {
-                    splitEdgesMap.set(newPosition+i, [this.previousPositionInFace(newPosition+i),
-                                                      this.nextPositionInFace(newPosition+i)]);
-                }
-                // These are the edges that we should try first next time.
-                preferredSplitEdges = [
-                    splitEdge,
-                    previousSplitEdge,
-                    newPosition+6,
-                ];
-                // Connect all unconnectedEdges that can be connected.
-                for (let newUnconnectedEdge of [newPosition, newPosition+3, newPosition+6]) {
-                    let connectionCount = 0;
-                    for (let otherUnconnectedEdge of splitEdgesMap.keys()) {
-                        let newStart = this.vector3FromPosition(newUnconnectedEdge);
-                        let newEnd = this.vector3FromPosition(this.nextPositionInFace(newUnconnectedEdge));
-                        let otherStart = this.vector3FromPosition(otherUnconnectedEdge);
-                        let otherEnd = this.vector3FromPosition(this.nextPositionInFace(otherUnconnectedEdge));
-                        if (newStart.equals(otherEnd) && newEnd.equals(otherStart)) {
-                            // We can connect this.
-                            // Connect the neighbors that we've just found.
-                            this.neighbors[newUnconnectedEdge/3] = otherUnconnectedEdge/3;
-                            this.neighbors[otherUnconnectedEdge/3] = newUnconnectedEdge/3;
-                            // Update the doubly-linked split edges.
-                            let [previousNew, nextNew] = splitEdgesMap.get(newUnconnectedEdge);
-                            let [previousOther, nextOther] = splitEdgesMap.get(otherUnconnectedEdge);
-                            splitEdgesMap.get(previousNew)[1] = nextOther;
-                            splitEdgesMap.get(previousOther)[1] = nextNew;
-                            splitEdgesMap.get(nextNew)[0] = previousOther;
-                            splitEdgesMap.get(nextOther)[0] = previousNew;
-                            // Remove the edges that are now connected.
-                            splitEdgesMap.delete(otherUnconnectedEdge);
-                            splitEdgesMap.delete(newUnconnectedEdge);
-                            break;
+                    // Connect all unconnectedEdges that can be connected.
+                    for (let newUnconnectedEdge of [newPosition, newPosition+3, newPosition+6]) {
+                        let connectionCount = 0;
+                        for (let otherUnconnectedEdge of splitEdgesMap.keys()) {
+                            let newStart = this.vector3FromPosition(newUnconnectedEdge);
+                            let newEnd = this.vector3FromPosition(this.nextPositionInFace(newUnconnectedEdge));
+                            let otherStart = this.vector3FromPosition(otherUnconnectedEdge);
+                            let otherEnd = this.vector3FromPosition(this.nextPositionInFace(otherUnconnectedEdge));
+                            if (newStart.equals(otherEnd) && newEnd.equals(otherStart)) {
+                                // We can connect this.
+                                // Connect the neighbors that we've just found.
+                                this.neighbors[newUnconnectedEdge/3] = otherUnconnectedEdge/3;
+                                this.neighbors[otherUnconnectedEdge/3] = newUnconnectedEdge/3;
+                                // Update the doubly-linked split edges.
+                                let [previousNew, nextNew] = splitEdgesMap.get(newUnconnectedEdge);
+                                let [previousOther, nextOther] = splitEdgesMap.get(otherUnconnectedEdge);
+                                splitEdgesMap.get(previousNew)[1] = nextOther;
+                                splitEdgesMap.get(previousOther)[1] = nextNew;
+                                splitEdgesMap.get(nextNew)[0] = previousOther;
+                                splitEdgesMap.get(nextOther)[0] = previousNew;
+                                // Remove the edges that are now connected from the Map.
+                                splitEdgesMap.delete(otherUnconnectedEdge);
+                                splitEdgesMap.delete(newUnconnectedEdge);
+                                // Remove the edges that are now connected from holeSplitEdges.
+                                holeSplitEdges.delete(otherUnconnectedEdge);
+                                holeSplitEdges.delete(newUnconnectedEdge);
+                                break;
+                            }
                         }
                     }
                 }

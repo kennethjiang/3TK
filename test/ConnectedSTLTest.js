@@ -225,8 +225,6 @@ describe("ConnectedSTL", function() {
             geometry.computeBoundingBox();
             let boundingBox = geometry.boundingBox;
             let connectedSTL = new ConnectedSTL().fromBufferGeometry(geometry);
-            connectedSTL.retriangle(
-                Array.from(new Array(connectedSTL.positions.length/9).keys()));
             let newConnectedSTLs = connectedSTL.chop(new THREE.Plane(
                 new THREE.Vector3(1,0,0), -((boundingBox.max.x + boundingBox.min.x*3)/4)));
             for (let i = 0; i < newConnectedSTLs.length; i++) {

@@ -1088,7 +1088,6 @@ class ConnectedSTL {
                             currentPosition = this.getNeighborPosition(nextPosition);
                         } while (currentPosition != startPosition);
                         this.removeDegenerates(faces);
-                        this.deleteDegenerates();
                     }
                 }
             }

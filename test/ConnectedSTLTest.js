@@ -191,7 +191,7 @@ describe("ConnectedSTL", function() {
             let geometry = new STLLoader().parse(stl);
             let connectedSTL = new ConnectedSTL().fromBufferGeometry(geometry);
             connectedSTL.mergeFaces(function (v0, v1) {
-                return v0.angleTo(v1) < Math.PI/180*20;
+                return v0.angleTo(v1) < Math.PI/180*2;
             });
             let mesh = new THREE.Mesh(connectedSTL.bufferGeometry());
             let obj = new THREE.Object3D();

@@ -23,7 +23,7 @@ describe("ConnectedSTL", function() {
             let stl = fs.readFileSync("test/" + filename + ".stl", {encoding: "binary"});
             let geometry = new STLLoader().parse(stl);
             let connectedSTL = new ConnectedSTL().fromBufferGeometry(geometry);
-            let newGeometries = connectedSTL.isolatedBufferGeometries(geometry);
+            let newGeometries = Array.from(connectedSTL.isolate()).map((x) => x.bufferGeometry());
             expect(newGeometries.length).to.equal(expectedGeometriesCount);
             if (writeShapes) {
                 for (let i = 0; i < newGeometries.length; i++) {
@@ -61,7 +61,7 @@ describe("ConnectedSTL", function() {
             expect(newNeighbors).to.have.ordered.members(oldNeighbors);
 
             // Spliting should not affect the number of shapes.
-            newGeometries = connectedSTL.isolatedBufferGeometries(geometry);
+            newGeometries = Array.from(connectedSTL.isolate()).map((x) => x.bufferGeometry());
             if (writeShapes) {
                 for (let i = 0; i < newGeometries.length; i++) {
                     let mesh = new THREE.Mesh(newGeometries[i]);
@@ -94,7 +94,7 @@ describe("ConnectedSTL", function() {
                     let obj = new THREE.Object3D();
                     obj.add(mesh);
                     fs.writeFileSync(filename + "_chop" + i + ".stl", new Buffer(new STLExporter().parse(obj)), 'ascii');
-                    newGeometries = newConnectedSTL.isolatedBufferGeometries(geometry);
+                    newGeometries = Array.from(connectedSTL.isolate()).map((x) => x.bufferGeometry());
                     for (let j = 0; j < newGeometries.length; j++) {
                         let mesh = new THREE.Mesh(newGeometries[j]);
                         let obj = new THREE.Object3D();

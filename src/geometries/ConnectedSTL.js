@@ -383,45 +383,30 @@ class ConnectedSTL {
         return true;
     }
 
-    // Returns a list of isolated BufferGeometries.
-    isolatedBufferGeometries() {
-        let geometries = [];
-        let islands = new Map();
-        let rounded = this.clone();
-        rounded.roundToFloat32();
-        for (let face = 0; face < rounded.reverseIslands.length; face++) {
-            let root = rounded.reverseIslands[face];
-            if (!Number.isInteger(root)) {
+    // Yield ConnectedSTLs, one per island.
+    *isolate() {
+        let seenIslands = new Set();
+        let foundOne = false;
+        for (let face = 0; face < this.reverseIslands.length; face++) {
+            let island = this.reverseIslands[face];
+            if (!Number.isInteger(island)) {
                 continue;
             }
-            if (!islands.has(root)) {
-                islands.set(root, []);
-            }
-            islands.get(root).push(face);
+            seenIslands.add(island);
         }
-        for (let island of islands.values()) {
-            let newGeometry = new THREE.BufferGeometry();
-
-            let vertices = [];
-            let normals = [];
-
-            for (let faceIndex of island) {
-                let posIndex = rounded.positionFromFace(faceIndex);
-                for (var i = 0; i < 9; i++) {
-                    vertices.push(rounded.positions[posIndex + i]);
-                }
-                let normal = rounded.faceNormal(faceIndex);
-                for (let i = 0; i < 3; i++) {
-                    normals.push(normal.x, normal.y, normal.z);
+        let islands = Array.from(seenIslands);
+        for (let islandIndex = 0; islandIndex < islands.length; islandIndex++) {
+            // Add a new clone.
+            let newConnectedSTL = this.clone();
+            for (let faceIndex = 0; faceIndex < this.positions.length/9; faceIndex++) {
+                let island = newConnectedSTL.reverseIslands[faceIndex];
+                if (Number.isInteger(island) && island != islands[islandIndex]) {
+                    newConnectedSTL.reverseIslands[faceIndex] = null; // Mark for deletion.
                 }
             }
-
-            newGeometry.addAttribute('position', new THREE.BufferAttribute(new Float32Array(vertices), 3));
-            newGeometry.addAttribute('normal', new THREE.BufferAttribute(new Float32Array(normals), 3));
-            geometries.push(newGeometry);
+            newConnectedSTL.deleteDegenerates();
+            yield newConnectedSTL;
         }
-
-        return geometries;
     }
 
     bufferGeometry() {

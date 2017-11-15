@@ -20,7 +20,7 @@ describe("ConnectedSTL", function() {
     describe("isolatedBufferGeometries", function() {
         let testFile = function (filename, expectedGeometriesCount, writeShapes = process.env.WRITE_TEST_OUTPUTS) {
             // Test that the number of shapes is as expected.
-            let stl = fs.readFileSync("test/" + filename + ".stl", {encoding: "binary"});
+            let stl = fs.readFileSync("test/data/" + filename + ".stl", {encoding: "binary"});
             let geometry = new STLLoader().parse(stl);
             let connectedSTL = new ConnectedSTL().fromBufferGeometry(geometry);
             let newGeometries = Array.from(connectedSTL.isolate()).map((x) => x.bufferGeometry());
@@ -172,7 +172,7 @@ describe("ConnectedSTL", function() {
                 this.skip();
             }
             this.timeout(0);
-            let stl = fs.readFileSync("test/egg_with_holes.stl", {encoding: "binary"});
+            let stl = fs.readFileSync("test/data/egg_with_holes.stl", {encoding: "binary"});
             let geometry = new STLLoader().parse(stl);
             let connectedSTL = new ConnectedSTL().fromBufferGeometry(geometry);
             connectedSTL.fixHoles();
@@ -187,7 +187,7 @@ describe("ConnectedSTL", function() {
                 this.skip();
             }
             this.timeout(30000);
-            let stl = fs.readFileSync("test/DINOSAUR_JUMP.stl", {encoding: "binary"});
+            let stl = fs.readFileSync("test/data/DINOSAUR_JUMP.stl", {encoding: "binary"});
             let geometry = new STLLoader().parse(stl);
             let connectedSTL = new ConnectedSTL().fromBufferGeometry(geometry);
             connectedSTL.mergeFaces(function (v0, v1) {
@@ -204,7 +204,7 @@ describe("ConnectedSTL", function() {
                 this.skip();
             }
             this.timeout(30000);
-            let stl = fs.readFileSync("test/DINOSAUR_JUMP.stl", {encoding: "binary"});
+            let stl = fs.readFileSync("test/data/DINOSAUR_JUMP.stl", {encoding: "binary"});
             let geometry = new STLLoader().parse(stl);
             let connectedSTL = new ConnectedSTL().fromBufferGeometry(geometry);
             connectedSTL.retriangle(
@@ -220,7 +220,7 @@ describe("ConnectedSTL", function() {
                 this.skip();
             }
             this.timeout(0);
-            let stl = fs.readFileSync("test/DINOSAUR_JUMP.stl", {encoding: "binary"});
+            let stl = fs.readFileSync("test/data/DINOSAUR_JUMP.stl", {encoding: "binary"});
             let geometry = new STLLoader().parse(stl);
             geometry.computeBoundingBox();
             let boundingBox = geometry.boundingBox;

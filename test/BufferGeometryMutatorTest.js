@@ -1,10 +1,10 @@
-import { BufferGeometryAnalyzer, ConnectedSTL, STLLoader, STLExporter, STLBinaryExporter } from '..';
+import { BufferGeometryAnalyzer, BufferGeometryMutator, STLLoader, STLExporter, STLBinaryExporter } from '..';
 import { expect } from 'chai';
 import fs from 'fs';
 import * as THREE from 'three';
 
 
-// Tests of ConnectedSTL.  To run:
+// Tests of BufferGeometryMutator.  To run:
 // npm test
 // To run with large tests and also write outputs:
 // env INCLUDE_LARGE_TESTS=1 WRITE_TEST_OUTPUTS=1 npm test
@@ -16,13 +16,13 @@ import * as THREE from 'three';
 const equalNormals = function (v0, v1) {
     return v0.angleTo(v1) < Math.PI/180*0.0001;
 };
-describe("ConnectedSTL", function() {
+describe("BufferGeometryMutator", function() {
     describe("isolatedBufferGeometries", function() {
         let testFile = function (filename, expectedGeometriesCount, writeShapes = process.env.WRITE_TEST_OUTPUTS) {
             // Test that the number of shapes is as expected.
             let stl = fs.readFileSync("test/data/" + filename + ".stl", {encoding: "binary"});
             let geometry = new STLLoader().parse(stl);
-            let connectedSTL = new ConnectedSTL().fromBufferGeometry(geometry);
+            let connectedSTL = new BufferGeometryMutator().fromBufferGeometry(geometry);
             let newGeometries = Array.from(connectedSTL.isolate()).map((x) => x.bufferGeometry());
             expect(newGeometries.length).to.equal(expectedGeometriesCount);
             if (writeShapes) {
@@ -83,14 +83,14 @@ describe("ConnectedSTL", function() {
 
             expect(newGeometries.length).to.equal(expectedGeometriesCount);
 
-            let newConnectedSTLs = connectedSTL.chop(new THREE.Plane(
+            let newBufferGeometryMutators = connectedSTL.chop(new THREE.Plane(
                 new THREE.Vector3(1,0,0), -((boundingBox.max.x + boundingBox.min.x*3)/4)));
-            for (let i = 0; i < newConnectedSTLs.length; i++) {
-                let newConnectedSTL = newConnectedSTLs[i];
-                newConnectedSTL.mergeFaces(equalNormals);
-                newConnectedSTL.retriangle(Array.from(new Array(newConnectedSTL.positions.length/9).keys()), equalNormals);
+            for (let i = 0; i < newBufferGeometryMutators.length; i++) {
+                let newBufferGeometryMutator = newBufferGeometryMutators[i];
+                newBufferGeometryMutator.mergeFaces(equalNormals);
+                newBufferGeometryMutator.retriangle(Array.from(new Array(newBufferGeometryMutator.positions.length/9).keys()), equalNormals);
                 if (writeShapes) {
-                    let mesh = new THREE.Mesh(newConnectedSTL.bufferGeometry());
+                    let mesh = new THREE.Mesh(newBufferGeometryMutator.bufferGeometry());
                     let obj = new THREE.Object3D();
                     obj.add(mesh);
                     fs.writeFileSync(filename + "_chop" + i + ".stl", new Buffer(new STLExporter().parse(obj)), 'ascii');
@@ -174,7 +174,7 @@ describe("ConnectedSTL", function() {
             this.timeout(0);
             let stl = fs.readFileSync("test/data/egg_with_holes.stl", {encoding: "binary"});
             let geometry = new STLLoader().parse(stl);
-            let connectedSTL = new ConnectedSTL().fromBufferGeometry(geometry);
+            let connectedSTL = new BufferGeometryMutator().fromBufferGeometry(geometry);
             connectedSTL.fixHoles();
             let mesh = new THREE.Mesh(connectedSTL.bufferGeometry());
             let obj = new THREE.Object3D();
@@ -189,7 +189,7 @@ describe("ConnectedSTL", function() {
             this.timeout(30000);
             let stl = fs.readFileSync("test/data/DINOSAUR_JUMP.stl", {encoding: "binary"});
             let geometry = new STLLoader().parse(stl);
-            let connectedSTL = new ConnectedSTL().fromBufferGeometry(geometry);
+            let connectedSTL = new BufferGeometryMutator().fromBufferGeometry(geometry);
             connectedSTL.mergeFaces(function (v0, v1) {
                 return v0.angleTo(v1) < Math.PI/180*2;
             });
@@ -206,7 +206,7 @@ describe("ConnectedSTL", function() {
             this.timeout(30000);
             let stl = fs.readFileSync("test/data/DINOSAUR_JUMP.stl", {encoding: "binary"});
             let geometry = new STLLoader().parse(stl);
-            let connectedSTL = new ConnectedSTL().fromBufferGeometry(geometry);
+            let connectedSTL = new BufferGeometryMutator().fromBufferGeometry(geometry);
             connectedSTL.retriangle(
                 Array.from(new Array(connectedSTL.positions.length/9).keys()));
             let mesh = new THREE.Mesh(connectedSTL.bufferGeometry());
@@ -224,8 +224,8 @@ describe("ConnectedSTL", function() {
             let geometry = new STLLoader().parse(stl);
             geometry.computeBoundingBox();
             let boundingBox = geometry.boundingBox;
-            let connectedSTL = new ConnectedSTL().fromBufferGeometry(geometry);
-            let newConnectedSTLs = connectedSTL.chop(new THREE.Plane(
+            let connectedSTL = new BufferGeometryMutator().fromBufferGeometry(geometry);
+            let newBufferGeometryMutators = connectedSTL.chop(new THREE.Plane(
                 new THREE.Vector3(1,0,0), -((boundingBox.max.x + boundingBox.min.x*3)/4)));
         });
     });

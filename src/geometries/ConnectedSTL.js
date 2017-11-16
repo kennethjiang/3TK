@@ -899,7 +899,6 @@ class ConnectedSTL {
         let newVertices = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
         // Loop until all the plane is sealed.
         while (splitEdgesMap.size > 0) {
-            console.log(splitEdgesMap.size);
             let hullSplitEdge = this.findConvexHullSplitEdge(splitEdgesMap);
             if (!Number.isInteger(hullSplitEdge)) {
                 return;
@@ -911,15 +910,26 @@ class ConnectedSTL {
             // directions in case the shape wasn't originally
             // manifold.
             let holeSplitEdges = new Set();
-            for (let splitEdge = hullSplitEdge;
+            let splitEdge;
+            for (splitEdge = hullSplitEdge;
                  Number.isInteger(splitEdge) && !holeSplitEdges.has(splitEdge);
                  splitEdge = splitEdgesMap.get(splitEdge)[1]) {
                 holeSplitEdges.add(splitEdge);
             }
-            for (let splitEdge = hullSplitEdge;
-                 Number.isInteger(splitEdge) && !holeSplitEdges.has(splitEdge);
-                 splitEdge = splitEdgesMap.get(splitEdge)[0]) {
-                holeSplitEdges.add(splitEdge);
+            if (!Number.isInteger(splitEdge)) {
+                // Save the forward edges.
+                let forwardHoleSplitEdges = Array.from(holeSplitEdges);
+                // Search in the reverse direction.
+                holeSplitEdges = new Set();
+                for (splitEdge = splitEdgesMap.get(hullSplitEdge)[0];
+                     Number.isInteger(splitEdge) && !holeSplitEdges.has(splitEdge);
+                     splitEdge = splitEdgesMap.get(splitEdge)[0]) {
+                    holeSplitEdges.add(splitEdge);
+                }
+                // Reverse it so now it's in the forward direction.
+                holeSplitEdges = new Set(Array.from(holeSplitEdges).reverse());
+                // Add the rest in the forward direction.
+                forwardHoleSplitEdges.forEach((x) => holeSplitEdges.add(x));
             }
             // Now we seal all edges from the holeSplitEdges such that
             // the normal matches the hull normal.

@@ -760,18 +760,14 @@ class ConnectedSTL {
             for (let splitEdge of islandSplitEdgesMap.keys()) {
                 // First we check in one direction.
                 let nextSplitEdge = this.getNeighborPosition(splitEdge);
-                let face = this.faceFromPosition(splitEdge);
                 while (Number.isInteger(nextSplitEdge) && // Have a neighbor.
                        nextSplitEdge != splitEdge && // Not back to the start.
-                       !(islandSplitEdgesMap.has(nextSplitEdge) &&
-                         this.reverseIslands[face] ==
-                         this.reverseIslands[this.faceFromPosition(nextSplitEdge)])) {
+                       !islandSplitEdgesMap.has(nextSplitEdge)) { // Not yet a split edge.
                     // Keep going around the neighbors.
                     nextSplitEdge = this.getNeighborPosition(this.previousPositionInFace(nextSplitEdge));
                 }
-                if (islandSplitEdgesMap.has(nextSplitEdge) &&
-                    this.reverseIslands[face] ==
-                    this.reverseIslands[this.faceFromPosition(nextSplitEdge)]) {
+                if (Number.isInteger(nextSplitEdge) &&
+                    islandSplitEdgesMap.has(nextSplitEdge)) {
                     // Found it.  Store it in the map and then do the next edge.
                     islandSplitEdgesMap.get(splitEdge)[1] = nextSplitEdge;
                     islandSplitEdgesMap.get(nextSplitEdge)[0] = splitEdge;
@@ -779,16 +775,15 @@ class ConnectedSTL {
                 }
                 // Now check in the other direction.
                 nextSplitEdge = this.nextPositionInFace(splitEdge);
-                while (Number.isInteger(nextSplitEdge) && // Have a neighbor.
+                let neighborPosition = this.getNeighborPosition(nextSplitEdge);
+                while (Number.isInteger(neighborPosition) && // Have a neighbor.
                        nextSplitEdge != splitEdge && // Not back to the start.
-                       !(islandSplitEdgesMap.has(nextSplitEdge) &&
-                         this.reverseIslands[face] ==
-                         this.reverseIslands[this.faceFromPosition(nextSplitEdge)])) {
-                    nextSplitEdge = this.nextPositionInFace(this.getNeighborPosition(nextSplitEdge));
+                       !islandSplitEdgesMap.has(nextSplitEdge)) { // Not yet a split edge.
+                    nextSplitEdge = this.nextPositionInFace(neighborPosition);
+                    neighborPosition = this.getNeighborPosition(nextSplitEdge);
                 }
-                if (islandSplitEdgesMap.has(nextSplitEdge) &&
-                    this.reverseIslands[face] ==
-                    this.reverseIslands[this.faceFromPosition(nextSplitEdge)]) {
+                if (Number.isInteger(nextSplitEdge) &&
+                    islandSplitEdgesMap.has(nextSplitEdge)) {
                     // Found it.  Store it in the map and then do the next edge.
                     islandSplitEdgesMap.get(splitEdge)[1] = nextSplitEdge;
                     islandSplitEdgesMap.get(nextSplitEdge)[0] = splitEdge;
@@ -807,7 +802,9 @@ class ConnectedSTL {
     }
 
     // This is used by fixPlanarHole to find a face that we can make
-    // that will be on the convex hull of the split edges.
+    // that will be on the convex hull of the split edges.  Returns
+    // null if no suitable edge can be found.  This can happen if the
+    // shape was nonmanifold in the first place.
     findConvexHullSplitEdge(splitEdgesMap) {
         let v0 = new THREE.Vector3();
         let v1 = new THREE.Vector3();
@@ -855,6 +852,7 @@ class ConnectedSTL {
             // Found a convex hull splitEdge for making a face.
             return splitEdge;
         }
+        return null;
     }
 
     // Given 3 vertices and splitEdges, makes a triangle that has none
@@ -901,7 +899,11 @@ class ConnectedSTL {
         let newVertices = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
         // Loop until all the plane is sealed.
         while (splitEdgesMap.size > 0) {
+            console.log(splitEdgesMap.size);
             let hullSplitEdge = this.findConvexHullSplitEdge(splitEdgesMap);
+            if (!Number.isInteger(hullSplitEdge)) {
+                return;
+            }
             let hullNormal = this.faceNormalFromPositions([this.nextPositionInFace(splitEdgesMap.get(hullSplitEdge)[1]),
                                                            splitEdgesMap.get(hullSplitEdge)[1],
                                                            hullSplitEdge]);
@@ -909,10 +911,14 @@ class ConnectedSTL {
             // directions in case the shape wasn't originally
             // manifold.
             let holeSplitEdges = new Set();
-            for (let splitEdge = hullSplitEdge; !holeSplitEdges.has(splitEdge); splitEdge = splitEdgesMap.get(splitEdge)[1]) {
+            for (let splitEdge = hullSplitEdge;
+                 Number.isInteger(splitEdge) && !holeSplitEdges.has(splitEdge);
+                 splitEdge = splitEdgesMap.get(splitEdge)[1]) {
                 holeSplitEdges.add(splitEdge);
             }
-            for (let splitEdge = hullSplitEdge; !holeSplitEdges.has(splitEdge); splitEdge = splitEdgesMap.get(splitEdge)[0]) {
+            for (let splitEdge = hullSplitEdge;
+                 Number.isInteger(splitEdge) && !holeSplitEdges.has(splitEdge);
+                 splitEdge = splitEdgesMap.get(splitEdge)[0]) {
                 holeSplitEdges.add(splitEdge);
             }
             // Now we seal all edges from the holeSplitEdges such that
@@ -972,10 +978,18 @@ class ConnectedSTL {
                                 // Update the doubly-linked split edges.
                                 let [previousNew, nextNew] = splitEdgesMap.get(newUnconnectedEdge);
                                 let [previousOther, nextOther] = splitEdgesMap.get(otherUnconnectedEdge);
-                                splitEdgesMap.get(previousNew)[1] = nextOther;
-                                splitEdgesMap.get(previousOther)[1] = nextNew;
-                                splitEdgesMap.get(nextNew)[0] = previousOther;
-                                splitEdgesMap.get(nextOther)[0] = previousNew;
+                                if (Number.isInteger(previousNew)) {
+                                    splitEdgesMap.get(previousNew)[1] = nextOther;
+                                }
+                                if (Number.isInteger(previousOther)) {
+                                    splitEdgesMap.get(previousOther)[1] = nextNew;
+                                }
+                                if (Number.isInteger(nextNew)) {
+                                    splitEdgesMap.get(nextNew)[0] = previousOther;
+                                }
+                                if (Number.isInteger(nextOther)) {
+                                    splitEdgesMap.get(nextOther)[0] = previousNew;
+                                }
                                 // Remove the edges that are now connected from the Map.
                                 splitEdgesMap.delete(otherUnconnectedEdge);
                                 splitEdgesMap.delete(newUnconnectedEdge);
@@ -986,6 +1000,7 @@ class ConnectedSTL {
                             }
                         }
                     }
+
                 }
                 break;
             }

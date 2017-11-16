@@ -908,7 +908,7 @@ class ConnectedSTL {
                                                            hullSplitEdge]);
             // Find all the splitEdges of this hole, in both
             // directions in case the shape wasn't originally
-            // manifold.
+            // manifold.  Store them in the forward direction.
             let holeSplitEdges = new Set();
             let splitEdge;
             for (splitEdge = hullSplitEdge;
@@ -1213,6 +1213,9 @@ class ConnectedSTL {
     retriangle(faces, equalNormals = function(x, y) { return x.equals(y); }) {
         let edgesRotated = 0;
         let previousEdgesRotated;
+        let vertices = [[new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()],
+                        [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()]];
+        let normals = [new THREE.Vector3(), new THREE.Vector3()];
         do {
             previousEdgesRotated = edgesRotated;
             for (let faceIndex of faces) {
@@ -1223,24 +1226,24 @@ class ConnectedSTL {
                 for (let edgeIndex = 0; edgeIndex < 3; edgeIndex++) {
                     let positions = [this.positionsFromFace(faceIndex, edgeIndex)];
                     positions[1] = [this.getNeighborPosition(positions[0][0])];
-                    if (!Number.isInteger(positions[1])) {
+                    if (!Number.isInteger(positions[1][0])) {
                         continue; // No neighbor for flip.
                     }
                     positions[1].push(this.nextPositionInFace(positions[1][0]),
                                       this.previousPositionInFace(positions[1][0]));
-                    let vertices = [];
-                    let normals = [];
                     for (let i = 0; i < 2; i++) {
-                        vertices[i] = this.vector3sFromPositions(positions[i]);
-                        normals[i] = new THREE.Triangle(...vertices[i]).normal();
+                        vertices[i] = this.vector3sFromPositions(positions[i], vertices[i]);
+                    }
+                    if (this.angle3(vertices[0][1], vertices[0][2], vertices[0][0]) +
+                        this.angle3(vertices[1][1], vertices[1][2], vertices[1][0]) <= Math.PI) {
+                        // Rotating this edge would not be an improvement.
+                        continue;
+                    }
+                    for (let i = 0; i < 2; i++) {
+                        normals[i] = new THREE.Triangle(...vertices[i]).normal(normals[i]);
                     }
                     if (!equalNormals(normals[0], normals[1])) {
                         // We can't move these around because the normals are too different.
-                        continue;
-                    }
-                    if (this.angle3(positions[0][1], positions[0][2], positions[0][0]) +
-                        this.angle3(positions[1][1], positions[1][2], positions[1][0]) < Math.PI) {
-                        // Rotating this edge would not be an improvement.
                         continue;
                     }
                     this.rotateEdge(positions[0][0]);

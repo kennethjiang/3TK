@@ -581,9 +581,16 @@ class ConnectedSTL {
                 }
 
                 // Add to this.neighbors
-                // TODO: Fix this to support shapes that are non-manifold.
                 let newNeighborIndex = this.neighbors.length;
-                if (vertexToMove[0] == 1 && vertexToMove[1] == 1) {
+                if (vertexToMove.length == 1 && vertexToMove[0] == 1) {
+                    this.neighbors.push(null,
+                                        this.neighbors[positions[0][1]/3],
+                                        positions[0][1]/3);
+                } else if (vertexToMove.length == 1 && vertexToMove[0] == 0) {
+                    this.neighbors.push(this.neighbors[positions[0][2]/3],
+                                        null,
+                                        positions[0][2]/3);
+                } else if (vertexToMove[0] == 1 && vertexToMove[1] == 1) {
                     this.neighbors.push(positions[1][0]/3,
                                         this.neighbors[positions[0][1]/3],
                                         positions[0][1]/3);
@@ -614,16 +621,17 @@ class ConnectedSTL {
                 }
 
                 // Make the above assignments symmetric.
-                for (let i = newNeighborIndex; i < newNeighborIndex+6; i++) {
+                for (let i = newNeighborIndex; i < newNeighborIndex+positions.length*3; i++) {
                     if (Number.isInteger(this.neighbors[i])) {
                         this.neighbors[this.neighbors[i]] = i;
                     }
                 }
                 // Update the reverseIslands.
-                this.reverseIslands[this.faceFromPosition(this.positions.length-18)] =
-                    this.reverseIslands[this.faceFromPosition(positions[0][0])];
-                this.reverseIslands[this.faceFromPosition(this.positions.length- 9)] =
-                    this.reverseIslands[this.faceFromPosition(positions[1][0])];
+                let newPositions = this.positions.length-(9*positions.length); // First new position.
+                for (let i = 0; i < positions.length; i++) {
+                    this.reverseIslands[this.faceFromPosition(newPositions+(9*i))] =
+                        this.reverseIslands[this.faceFromPosition(positions[i][0])];
+                }
             }
         }
         return splitPositions;

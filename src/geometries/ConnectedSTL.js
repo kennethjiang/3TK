@@ -1160,7 +1160,8 @@ class ConnectedSTL {
     // Move the edge that connects to triangles and instead put it
     // between the other two points.
     //
-    // position is the edge to move.
+    // position is the edge to move.  The new edge that joins the two
+    // faces after rotation will be the one previous to position.
     rotateEdge(position) {
         let positions = [];
         positions[0] = [this.nextPositionInFace(position)];
@@ -1216,8 +1217,12 @@ class ConnectedSTL {
         let vertices = [[new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()],
                         [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()]];
         let normals = [new THREE.Vector3(), new THREE.Vector3()];
+        let edgesCheckedCount = 0;
+        let edgePositionsDelaunay = new Set(null);
         do {
             previousEdgesRotated = edgesRotated;
+            //console.log("starting" + edgesRotated);
+            //console.log("edgesChecked " + edgesCheckedCount);
             for (let faceIndex of faces) {
                 if (!Number.isInteger(this.reverseIslands[faceIndex])) {
                     // Already going to be removed.
@@ -1229,6 +1234,13 @@ class ConnectedSTL {
                     if (!Number.isInteger(positions[1][0])) {
                         continue; // No neighbor for flip.
                     }
+                    if (edgePositionsDelaunay.has(positions[1][0]) && edgePositionsDelaunay.has(positions[0][0])) {
+                        // Skip it, it was already found to be okay.
+                        continue;
+                    }
+                    edgePositionsDelaunay.add(positions[0][0]);
+                    edgesCheckedCount++;
+                    edgePositionsDelaunay.add(positions[1][0]);
                     positions[1].push(this.nextPositionInFace(positions[1][0]),
                                       this.previousPositionInFace(positions[1][0]));
                     for (let i = 0; i < 2; i++) {
@@ -1247,10 +1259,16 @@ class ConnectedSTL {
                         continue;
                     }
                     this.rotateEdge(positions[0][0]);
+                    for (let i = 0; i < 2; i++) {
+                        for (let j = 0; j < 2; j++) {
+                            edgePositionsDelaunay.delete(positions[i][j]);
+                        }
+                    }
                     edgesRotated++;
                 }
             }
         } while (previousEdgesRotated != edgesRotated);
+        console.log(edgesCheckedCount);
         return edgesRotated;
     }
 

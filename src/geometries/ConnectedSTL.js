@@ -1059,6 +1059,11 @@ class ConnectedSTL {
         this.removeDegenerates(this.range(faceCount));
         let facesMerged = 0;
         let previousFacesMerged = 0;
+        let start = new THREE.Vector3();
+        let neighborVertices = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
+        let neighborNormal = new THREE.Vector3();
+        let newNeighborNormal = new THREE.Vector3();
+        let triangle = new THREE.Triangle();
         do {
             previousFacesMerged = facesMerged;
             for (let faceIndex = 0; faceIndex < faceCount; faceIndex++) {
@@ -1073,7 +1078,7 @@ class ConnectedSTL {
                     }
                     let startPosition = this.positionFromFaceEdge(faceIndex, edgeIndex);
                     let currentPosition = startPosition;
-                    let start = this.vector3FromPosition(startPosition);
+                    start = this.vector3FromPosition(startPosition, start);
                     // Test if moving the point would affect any face normals.
                     do {
                         currentPosition = this.getNeighborPosition(this.nextPositionInFace(currentPosition));
@@ -1082,14 +1087,14 @@ class ConnectedSTL {
                         }
                         let nextPosition = this.nextPositionInFace(currentPosition);
                         let thirdPosition = this.nextPositionInFace(nextPosition);
-                        let neighborVertices = this.vector3sFromPositions([currentPosition,
-                                                                           nextPosition,
-                                                                           thirdPosition]);
-                        let neighborNormal = new THREE.Triangle(...neighborVertices).normal();
+                        neighborVertices = this.vector3sFromPositions([currentPosition,
+                                                                       nextPosition,
+                                                                       thirdPosition], neighborVertices);
+                        neighborNormal = triangle.set(...neighborVertices).normal(neighborNormal);
                         // After moving the vertex, this will be the new normal.
-                        let newNeighborNormal = new THREE.Triangle(neighborVertices[0],
-                                                                   start,
-                                                                   neighborVertices[2]).normal();
+                        newNeighborNormal = triangle.set(neighborVertices[0],
+                                                         start,
+                                                         neighborVertices[2]).normal(newNeighborNormal);
                         if (newNeighborNormal.length() != 0 &&
                             !equalNormals(neighborNormal, newNeighborNormal)) {
                             break;  // This face's normal has changed so we can't move it.

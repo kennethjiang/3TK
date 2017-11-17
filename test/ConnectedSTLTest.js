@@ -88,8 +88,8 @@ describe("ConnectedSTL", function() {
                 new THREE.Vector3(1,0,0), -((boundingBox.max.x + boundingBox.min.x*3)/4)));
             for (let i = 0; i < newConnectedSTLs.length; i++) {
                 let newConnectedSTL = newConnectedSTLs[i];
-                //newConnectedSTL.mergeFaces(equalNormals);
-                //newConnectedSTL.retriangle(Array.from(new Array(newConnectedSTL.positions.length/9).keys()), equalNormals);
+                newConnectedSTL.mergeFaces(equalNormals);
+                newConnectedSTL.retriangle(Array.from(new Array(newConnectedSTL.positions.length/9).keys()), equalNormals);
                 if (writeShapes) {
                     let mesh = new THREE.Mesh(newConnectedSTL.bufferGeometry());
                     let obj = new THREE.Object3D();

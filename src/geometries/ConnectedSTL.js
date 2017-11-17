@@ -1217,58 +1217,52 @@ class ConnectedSTL {
         let vertices = [[new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()],
                         [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()]];
         let normals = [new THREE.Vector3(), new THREE.Vector3()];
-        let edgesCheckedCount = 0;
-        let edgePositionsDelaunay = new Set(null);
+        // Edges which potentially still need to be rotated.
+        let edgePositionsDelaunay = new Set();
+        for (let i = 0; i < this.positions.length; i+=3) {
+            edgePositionsDelaunay.add(i);
+        }
         do {
             previousEdgesRotated = edgesRotated;
-            //console.log("starting" + edgesRotated);
-            //console.log("edgesChecked " + edgesCheckedCount);
-            for (let faceIndex of faces) {
+            for (let pos of edgePositionsDelaunay) {
+                let faceIndex = this.faceFromPosition(pos);
+                edgePositionsDelaunay.delete(pos);
                 if (!Number.isInteger(this.reverseIslands[faceIndex])) {
                     // Already going to be removed.
                     continue;
                 }
-                for (let edgeIndex = 0; edgeIndex < 3; edgeIndex++) {
-                    let positions = [this.positionsFromFace(faceIndex, edgeIndex)];
-                    positions[1] = [this.getNeighborPosition(positions[0][0])];
-                    if (!Number.isInteger(positions[1][0])) {
-                        continue; // No neighbor for flip.
-                    }
-                    if (edgePositionsDelaunay.has(positions[1][0]) && edgePositionsDelaunay.has(positions[0][0])) {
-                        // Skip it, it was already found to be okay.
-                        continue;
-                    }
-                    edgePositionsDelaunay.add(positions[0][0]);
-                    edgesCheckedCount++;
-                    edgePositionsDelaunay.add(positions[1][0]);
-                    positions[1].push(this.nextPositionInFace(positions[1][0]),
-                                      this.previousPositionInFace(positions[1][0]));
-                    for (let i = 0; i < 2; i++) {
-                        vertices[i] = this.vector3sFromPositions(positions[i], vertices[i]);
-                    }
-                    if (this.angle3(vertices[0][1], vertices[0][2], vertices[0][0]) +
-                        this.angle3(vertices[1][1], vertices[1][2], vertices[1][0]) <= Math.PI) {
-                        // Rotating this edge would not be an improvement.
-                        continue;
-                    }
-                    for (let i = 0; i < 2; i++) {
-                        normals[i] = new THREE.Triangle(...vertices[i]).normal(normals[i]);
-                    }
-                    if (!equalNormals(normals[0], normals[1])) {
-                        // We can't move these around because the normals are too different.
-                        continue;
-                    }
-                    this.rotateEdge(positions[0][0]);
-                    for (let i = 0; i < 2; i++) {
-                        for (let j = 0; j < 2; j++) {
-                            edgePositionsDelaunay.delete(positions[i][j]);
-                        }
-                    }
-                    edgesRotated++;
+                let positions = [[pos, this.nextPositionInFace(pos), this.previousPositionInFace(pos)]];
+                positions[1] = [this.getNeighborPosition(positions[0][0])];
+                if (!Number.isInteger(positions[1][0])) {
+                    continue; // No neighbor for flip.
                 }
+                edgePositionsDelaunay.delete(positions[1][0]);
+                positions[1].push(this.nextPositionInFace(positions[1][0]),
+                                  this.previousPositionInFace(positions[1][0]));
+                for (let i = 0; i < 2; i++) {
+                    vertices[i] = this.vector3sFromPositions(positions[i], vertices[i]);
+                }
+                if (this.angle3(vertices[0][1], vertices[0][2], vertices[0][0]) +
+                    this.angle3(vertices[1][1], vertices[1][2], vertices[1][0]) <= Math.PI) {
+                    // Rotating this edge would not be an improvement.
+                    continue;
+                }
+                for (let i = 0; i < 2; i++) {
+                    normals[i] = new THREE.Triangle(...vertices[i]).normal(normals[i]);
+                }
+                if (!equalNormals(normals[0], normals[1])) {
+                    // We can't move these around because the normals are too different.
+                    continue;
+                }
+                this.rotateEdge(positions[0][0]);
+                for (let i = 0; i < 2; i++) {
+                    for (let j = 0; j < 2; j++) {
+                        edgePositionsDelaunay.add(positions[i][j]);
+                    }
+                }
+                edgesRotated++;
             }
-        } while (previousEdgesRotated != edgesRotated);
-        console.log(edgesCheckedCount);
+        } while (edgePositionsDelaunay.size > 0);
         return edgesRotated;
     }
 

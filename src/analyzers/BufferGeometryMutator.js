@@ -52,8 +52,10 @@ class BufferGeometryMutator {
         if (!this.findNeighbors()) {
             return null;
         }
+        /*
         this.removeDegenerates(this.range(this.positions.length/9));
         this.deleteDegenerates();
+        */
         return this;
     }
 
@@ -409,6 +411,42 @@ class BufferGeometryMutator {
         }
     }
 
+    // Whereas isolate() returns BufferGeometryMutators, this returns
+    // BufferGeometries.  This runs faster than doing isolate() and
+    // then bufferGeometry() on each.
+    isolatedBufferGeometries() {
+        // Map from island id to BufferGeometry.
+        let seenIslands = new Map();
+        let foundOne = false;
+        let rounded = this;
+        let normal = THREE.Vector3();
+        //rounded.roundToFloat32();
+        for (let face = 0; face < rounded.reverseIslands.length; face++) {
+            let island = rounded.reverseIslands[face];
+            if (!Number.isInteger(island)) {
+                continue;
+            }
+            if (!seenIslands.has(island)) {
+                seenIslands.set(island, [[], []]);
+            }
+            let [positions, normals] = seenIslands.get(island);
+            let position = rounded.positionsFromFace(face);
+            for (let offset = 0; offset < 9; offset++) {
+                positions.push(rounded.positions[position+offset]);
+            }
+            normal = rounded.faceNormal(face, normal);
+            normals.push(normal.x, normal.y, normal.z);
+        }
+        let newBufferGeometries = [];
+        for (let [positions, normals] of seenIslands.values()) {
+            let newGeometry = new THREE.BufferGeometry();
+            newGeometry.addAttribute('position', new THREE.BufferAttribute(new Float32Array(positions), 3));
+            newGeometry.addAttribute('normal', new THREE.BufferAttribute(new Float32Array(normals), 3));
+            newBufferGeometries.push(newGeometry);
+        }
+        return newBufferGeometries;
+    }
+
     bufferGeometry() {
         let newGeometry = new THREE.BufferGeometry();
         let normals = [];
@@ -438,7 +476,7 @@ class BufferGeometryMutator {
     }
 
     // Returns all positions in the face, starting from the vertex specified.
-    positionsFromFace(faceIndex, vertexIndex) {
+    positionsFromFace(faceIndex, vertexIndex = 0) {
         let p1 = this.positionFromFaceEdge(faceIndex, vertexIndex);
         let p2 = this.nextPositionInFace(p1);
         let p3 = this.nextPositionInFace(p2);
@@ -473,13 +511,15 @@ class BufferGeometryMutator {
         }
     }
 
-    faceNormalFromPositions(positions) {
+    faceNormalFromPositions(positions, target) {
+        target = target || new THREE.Vector3();
         return this.faceNormalTriangle.set(...this.vector3sFromPositions(positions, this.faceNormalVector3s)).normal();
     }
 
     // Returns the unit normal of a triangular face.
-    faceNormal(faceIndex) {
-        return this.faceNormalFromPositions(this.positionsFromFace(faceIndex, 0));
+    faceNormal(faceIndex, target) {
+        target = target || new THREE.Vector3();
+        return this.faceNormalFromPositions(this.positionsFromFace(faceIndex, 0), target);
     }
 
     // Split all edges in this geometry so that there are no edges

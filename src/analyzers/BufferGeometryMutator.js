@@ -568,7 +568,7 @@ class BufferGeometryMutator {
     // Returns the unit normal of a triangular face.
     faceNormal(faceIndex, target) {
         target = target || new THREE.Vector3();
-        return this.faceNormalFromPositions(this.positionsFromFace(faceIndex, 0), target);
+        return this.faceNormalFromPositions(this.positionsFromFace(faceIndex), target);
     }
 
     // Split all edges in this geometry so that there are no edges
@@ -809,7 +809,7 @@ class BufferGeometryMutator {
         // All faces that are on the split are diconnected from their neighbors.
         let vertices = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
         for (let faceIndex = 0; faceIndex < this.positions.length/9; faceIndex++) {
-            let positions = this.positionsFromFace(faceIndex, 0);
+            let positions = this.positionsFromFace(faceIndex);
             vertices = this.vector3sFromPositions(positions, vertices);
             let distances = [];
             for (let i = 0; i < 3; i++) {
@@ -1509,7 +1509,7 @@ class BufferGeometryMutator {
             // positions[0] for current face, positions[1] for
             // neighbor.
             let positions = [];
-            positions[0] = this.positionsFromFace(faceIndex, 0);
+            positions[0] = this.positionsFromFace(faceIndex);
             let vertices = [];
             vertices[0] = this.vector3sFromPositions(positions[0]);
             let normal = new THREE.Triangle(...vertices[0]).normal();

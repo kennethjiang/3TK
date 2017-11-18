@@ -113,8 +113,8 @@ class BufferGeometryMutator {
     // Given index in this.positions, return a THREE.Color of that
     // point.  Re-use the provided Color if there is one.
     colorFromPosition(position, color) {
-        if (!this.color) {
-            return this.color;
+        if (!this.colors) {
+            return this.colors;
         }
         color = color || new THREE.Color();
         return color.fromArray(this.colors, position);

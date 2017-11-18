@@ -418,7 +418,7 @@ class BufferGeometryMutator {
         // Map from island id to BufferGeometry.
         let seenIslands = new Map();
         let foundOne = false;
-        let normal = THREE.Vector3();
+        let normal = new THREE.Vector3();
         for (let face = 0; face < this.reverseIslands.length; face++) {
             let island = this.reverseIslands[face];
             if (!Number.isInteger(island)) {

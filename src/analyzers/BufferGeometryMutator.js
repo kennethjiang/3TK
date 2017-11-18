@@ -578,7 +578,15 @@ class BufferGeometryMutator {
         // Each position is on the plane for the purpose of collapsing
         // later.
         let splitPositions = new Set();
-
+        // 2D array, element 0 is for current face, element 1 for neighbor if there is one.
+        let vertices = [[new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()],
+                        [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()]];
+        // 2D array, element 0 is for current face, element 1 for neighbor if there is one.
+        let colors =  [[new THREE.Color(), new THREE.Color(), new THREE.Color()],
+                       [new THREE.Color(), new THREE.Color(), new THREE.Color()]];
+        let intersectionPoint = new THREE.Vector3();
+        let intersectionColor = new THREE.Color();
+        let line = new THREE.Line3();
         const faceCount = this.positions.length/9;
         for (let faceIndex = 0; faceIndex < faceCount; faceIndex++) {
             for (let edgeIndex= 0; edgeIndex < 3; edgeIndex++) {
@@ -608,11 +616,9 @@ class BufferGeometryMutator {
                     positions[1].push(this.nextPositionInFace(positions[1][0]),
                                       this.previousPositionInFace(positions[1][0]));
                 }
-                let vertices = []; // 2D array, element 0 is for current face, element 1 for neighbor if there is one.
-                let colors = [];  // 2D array, element 0 is for current face, element 1 for neighbor if there is one.
                 for (let i = 0; i < positions.length; i++) {
-                    vertices[i] = this.vector3sFromPositions(positions[i]);
-                    colors[i] = this.colorsFromPositions(positions[i]);
+                    vertices[i] = this.vector3sFromPositions(positions[i], vertices[i]);
+                    colors[i] = this.colorsFromPositions(positions[i], colors[i]);
                 }
 
                 // We only use plane.distanceTo so that the result is
@@ -639,15 +645,14 @@ class BufferGeometryMutator {
                 // By this point, neither is 0 and one is greater than
                 // 0 and one is less than 0.
                 let alpha = distances[0]/(distances[0]-distances[1]);
-                let intersectionPoint = vertices[0][0].clone().lerp(vertices[0][1], alpha);
-                let intersectionColor;
+                intersectionPoint.copy(vertices[0][0]).lerp(vertices[0][1], alpha);
                 if (this.colors) {
-                    intersectionColor = colors[0][0].clone().lerp(colors[0][1], alpha);
+                    intersectionColor.copy(colors[0][0]).lerp(colors[0][1], alpha);
                 }
 
                 let vertexToMove = [];
                 for (let i = 0; i < positions.length; i++) {
-                    let secondIntersectionPoint = plane.intersectLine(new THREE.Line3(vertices[i][0], vertices[i][2]));
+                    let secondIntersectionPoint = plane.intersectLine(line.set(vertices[i][0], vertices[i][2]));
                     // Which vertex needs to be moved to the intersection
                     // so that the new face created won't need further
                     // splitting?

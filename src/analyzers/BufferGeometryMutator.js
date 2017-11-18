@@ -8,6 +8,10 @@ class BufferGeometryMutator {
         // An array of numbers.  Every triple represents a point.
         // Every 3 points is a face.
         this.positions = [];
+        // An array of numbers.  Every triple represents the RGB of a
+        // vertex.  If it's undefined, that means that the input
+        // BufferGeometry didn't have any colors.
+        this.colors = undefined;
         // neighbors has length the same as faces*3.  Each element is
         // the position of the neighboring faceEdge.
         this.neighbors = [];
@@ -30,6 +34,9 @@ class BufferGeometryMutator {
     clone() {
         let newBufferGeometryMutator = new BufferGeometryMutator();
         newBufferGeometryMutator.positions = this.positions.slice(0);
+        if (this.colors) {
+            newBufferGeometryMutator.colors = this.colors.slice(0);
+        }
         newBufferGeometryMutator.neighbors = this.neighbors.slice(0);
         newBufferGeometryMutator.reverseIslands = this.reverseIslands.slice(0);
         return newBufferGeometryMutator;
@@ -49,6 +56,11 @@ class BufferGeometryMutator {
     // Uses only the positions from a THREE.BufferGeometry.
     fromBufferGeometry(bufferGeometry) {
         this.positions = Array.from(bufferGeometry.getAttribute('position').array);
+        if (bufferGeometry.getAttribute('color')) {
+            this.colors = Array.from(bufferGeometry.getAttribute('color').array);
+        } else {
+            this.colors = undefined;
+        }
         if (!this.findNeighbors()) {
             return null;
         }
@@ -99,6 +111,15 @@ class BufferGeometryMutator {
     vector3FromPosition(position, vector3) {
         vector3 = vector3 || new THREE.Vector3();
         return vector3.fromArray(this.positions, position);
+    }
+    // Given index in this.positions, return a THREE.Color of that
+    // point.  Re-use the provided Color if there is one.
+    colorFromPosition(position, color) {
+        if (!this.color) {
+            return this.color;
+        }
+        color = color || new THREE.Color();
+        return color.fromArray(this.colors, position);
     }
 
     // Gets the position of an adjacent vertex in the face.  If
@@ -422,6 +443,9 @@ class BufferGeometryMutator {
             }
         }
         newGeometry.addAttribute('position', new THREE.BufferAttribute(new Float32Array(rounded.positions), 3));
+        if (rounded.colors) {
+            newGeometry.addAttribute('color', new THREE.BufferAttribute(new Float32Array(rounded.colors), 3));
+        }
         newGeometry.addAttribute('normal', new THREE.BufferAttribute(new Float32Array(normals), 3));
         return newGeometry;
     }
@@ -455,6 +479,20 @@ class BufferGeometryMutator {
         return ret;
     }
 
+    // Gets all Colors for the positionList.  Use the colors in the
+    // list if provided.  If this.colors is not defined, return
+    // undefined.
+    colorsFromPositions(positionList, colorList = []) {
+        if (!this.colors) {
+            return this.colors;
+        }
+        let ret = [];
+        for (let i = 0; i < positionList.length; i++) {
+            ret.push(this.colorFromPosition(positionList[i], colorList[i]));
+        }
+        return ret;
+    }
+
     // Returns the neighbor edge position of a position.
     getNeighborPosition(position) {
         if (Number.isInteger(this.neighbors[position/3])) {
@@ -465,11 +503,20 @@ class BufferGeometryMutator {
     }
 
     // copy the x,y,z of the points into the array at the offset
-    setPointsInArray(points, array, offset) {
+    setPositions(points, offset) {
         for (let p of points) {
-            array[offset++] = p.x;
-            array[offset++] = p.y;
-            array[offset++] = p.z;
+            this.positions[offset++] = p.x;
+            this.positions[offset++] = p.y;
+            this.positions[offset++] = p.z;
+        }
+    }
+
+    // copy the r,g,b of the colors into the array at the offset
+    setColors(colors, offset) {
+        for (let c of colors) {
+            this.colors[offset++] = c.r;
+            this.colors[offset++] = c.g;
+            this.colors[offset++] = c.b;
         }
     }
 
@@ -505,7 +552,8 @@ class BufferGeometryMutator {
                 */
                 let positions = []; // 2D array, element 0 is for current face, element 1 for neighbor.
                 positions[0] = this.positionsFromFace(faceIndex, edgeIndex);
-                if (splitPositions.has(this.keyForTrio(positions[0][0])) || splitPositions.has(this.keyForTrio(positions[0][1]))) {
+                if (splitPositions.has(this.keyForTrio(positions[0][0])) ||
+                    splitPositions.has(this.keyForTrio(positions[0][1]))) {
                     // One of the end ponts is already split so there's no
                     // need to split here.  This saves us from creating
                     // degenerate triangles when the interseciton
@@ -518,9 +566,11 @@ class BufferGeometryMutator {
                     positions[1].push(this.nextPositionInFace(positions[1][0]),
                                       this.previousPositionInFace(positions[1][0]));
                 }
-                let vertices = []; // 2D array, element 0 is for current face, element 1 for neighbor if there is one..
+                let vertices = []; // 2D array, element 0 is for current face, element 1 for neighbor if there is one.
+                let colors = [];  // 2D array, element 0 is for current face, element 1 for neighbor if there is one.
                 for (let i = 0; i < positions.length; i++) {
                     vertices[i] = this.vector3sFromPositions(positions[i]);
+                    colors[i] = this.colorsFromPositions(positions[i]);
                 }
 
                 // We only use plane.distanceTo so that the result is
@@ -548,6 +598,10 @@ class BufferGeometryMutator {
                 // 0 and one is less than 0.
                 let alpha = distances[0]/(distances[0]-distances[1]);
                 let intersectionPoint = vertices[0][0].clone().lerp(vertices[0][1], alpha);
+                let intersectionColor;
+                if (this.colors) {
+                    intersectionColor = colors[0][0].clone().lerp(colors[0][1], alpha);
+                }
 
                 let vertexToMove = [];
                 for (let i = 0; i < positions.length; i++) {
@@ -568,15 +622,27 @@ class BufferGeometryMutator {
 
                 for (let i = 0; i < positions.length; i++) {
                     // The intersectionPoint replaces the vertex from above.
-                    this.setPointsInArray([intersectionPoint], this.positions, positions[i][vertexToMove[i]]);
+                    this.setPositions([intersectionPoint], positions[i][vertexToMove[i]]);
+                    if (this.colors) {
+                        // The intersectionColor replaces the color from above.
+                        this.setColors([intersectionColor], positions[i][vertexToMove[i]]);
+                    }
                     splitPositions.add(this.keyForTrio(positions[i][vertexToMove[i]]));
                     // A new face needs to be added for the other side of the triangle.
                     if (vertexToMove[i] == 0) {
-                        this.setPointsInArray([vertices[i][2], vertices[i][0], intersectionPoint],
-                                              this.positions, this.positions.length);
+                        this.setPositions([vertices[i][2], vertices[i][0], intersectionPoint],
+                                          this.positions.length);
+                        if (this.colors) {
+                            this.setColors([colors[i][2], colors[i][0], intersectionColor],
+                                           this.colors.length);
+                        }
                     } else {
-                        this.setPointsInArray([intersectionPoint, vertices[i][1], vertices[i][2]],
-                                              this.positions, this.positions.length);
+                        this.setPositions([intersectionPoint, vertices[i][1], vertices[i][2]],
+                                          this.positions.length);
+                        if (this.colors) {
+                            this.setColors([intersectionColor, colors[i][1], colors[i][2]],
+                                           this.colors.length);
+                        }
                     }
                 }
 
@@ -891,6 +957,7 @@ class BufferGeometryMutator {
     // doubly-linked list.
     fixPlanarHole(splitEdgesMap) {
         let newVertices = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
+        let newColors = [new THREE.Color(), new THREE.Color(), new THREE.Color()];
         // Loop until all the plane is sealed.
         while (splitEdgesMap.size > 0) {
             let hullSplitEdge = this.findConvexHullSplitEdge(splitEdgesMap);
@@ -923,6 +990,10 @@ class BufferGeometryMutator {
                                                               nextSplitEdge,
                                                               splitEdge],
                                                              newVertices);
+                    newColors = this.colorsFromPositions([this.nextPositionInFace(nextSplitEdge),
+                                                          nextSplitEdge,
+                                                          splitEdge],
+                                                         newColors);
                     let normal = this.faceNormalFromPositions([this.nextPositionInFace(nextSplitEdge),
                                                                nextSplitEdge,
                                                                splitEdge]);
@@ -935,10 +1006,9 @@ class BufferGeometryMutator {
                     this.makeTriangleWithNoInsidePoints(newVertices, splitEdgesMap);
                     // Add the new face to the positions.
                     let newPosition = this.positions.length;
-                    for (let vertex of newVertices) {
-                        this.positions.push(vertex.x,
-                                            vertex.y,
-                                            vertex.z);
+                    this.setPositions(newVertices, newPosition);
+                    if (this.colors) {
+                        this.setColors(newColors, newPosition);
                     }
                     // Add all the edges of the new face to the
                     // splitEdges as unconnected.  Also add to the
@@ -1031,16 +1101,17 @@ class BufferGeometryMutator {
             for (let faceIndex = 0; faceIndex < faceCount; faceIndex++) {
                 for (let edgeIndex = 0; edgeIndex < 3; edgeIndex++) {
                     if (!Number.isInteger(this.reverseIslands[faceIndex])) {
-                        // This face is already a degenerate from previous
-                        // merge operations but not yet deleted from
-                        // this.positions .  Stop processing it.
-                        // Eventually it will be removed from
-                        // this.positions.
+                        // This face is already a degenerate from
+                        // previous merge operations but not yet
+                        // deleted from this.positions .  Stop
+                        // processing it.  Eventually it will be
+                        // removed from this.positions.
                         break;
                     }
                     let startPosition = this.positionFromFaceEdge(faceIndex, edgeIndex);
                     let currentPosition = startPosition;
-                    let start = this.vector3FromPosition(startPosition);
+                    let startVertex = this.vector3FromPosition(startPosition);
+                    let startColor = this.colorFromPosition(startPosition);
                     // Test if moving the point would affect any face normals.
                     do {
                         currentPosition = this.getNeighborPosition(this.nextPositionInFace(currentPosition));
@@ -1055,7 +1126,7 @@ class BufferGeometryMutator {
                         let neighborNormal = new THREE.Triangle(...neighborVertices).normal();
                         // After moving the vertex, this will be the new normal.
                         let newNeighborNormal = new THREE.Triangle(neighborVertices[0],
-                                                                   start,
+                                                                   startVertex,
                                                                    neighborVertices[2]).normal();
                         if (newNeighborNormal.length() != 0 &&
                             !equalNormals(neighborNormal, newNeighborNormal)) {
@@ -1068,7 +1139,10 @@ class BufferGeometryMutator {
                         let faces = [];
                         do {
                             let nextPosition = this.nextPositionInFace(currentPosition);
-                            this.setPointsInArray([start], this.positions, nextPosition);
+                            this.setPositions([startVertex], nextPosition);
+                            if (this.colors) {
+                                this.setColors([startColor], nextPosition);
+                            }
                             faces.push(this.faceFromPosition(currentPosition));
                             currentPosition = this.getNeighborPosition(nextPosition);
                         } while (currentPosition != startPosition);
@@ -1140,18 +1214,23 @@ class BufferGeometryMutator {
         positions[1].push(this.nextPositionInFace(positions[1][0]),
                           this.previousPositionInFace(positions[1][0]));
         let vertices = [];
+        let colors = [];
         for (let i = 0; i < 2; i++) {
             vertices[i] = this.vector3sFromPositions(positions[i]);
+            colors[i] = this.colorsFromPositions(positions[i]);
         }
         for (let i = 0; i < 2; i++) {
-            this.setPointsInArray([vertices[i][1]], this.positions, positions[1-i][2]);
+            this.setPositions([vertices[i][1]], positions[1-i][2]);
+            if (this.colors) {
+                this.setColors([colors[i][1]], positions[1-i][2]);
+            }
         }
         // Adjust neighbors.
         for (let i=0; i < 2; i++) {
             this.neighbors[positions[  i][2]/3] = this.neighbors[positions[1-i][1]/3];
             this.neighbors[positions[1-i][1]/3] =                positions[  i][1]/3;
         }
-        // Make the above assignments symmetric.
+        // Make the above neighbor assignments symmetric.
         for (let i = 0; i < 2; i++) {
             for (let j = 0; j < 3; j++) {
                 if (Number.isInteger(this.neighbors[positions[i][j]/3])) {
@@ -1276,12 +1355,9 @@ class BufferGeometryMutator {
             }
             // Add the new face to the positions.
             let newPosition = this.positions.length;
-            for (let vertex of this.vector3sFromPositions(smallestABC, [a, b, c])) {
-                this.positions.push(vertex.x,
-                                    vertex.y,
-                                    vertex.z);
-            }
-            // Add all the edges to the The other two edges of the new face are unconnected.
+            this.setPositions(this.vector3sFromPositions(smallestABC, [a, b, c]), newPosition);
+            this.setColors(this.colorsFromPositions(smallestABC, [a, b, c]), newPosition);
+            // Add all the edges to the unconnected edges.
             unconnectedEdges.add(newPosition);
             unconnectedEdges.add(newPosition+3);
             unconnectedEdges.add(newPosition+6);
@@ -1425,6 +1501,7 @@ class BufferGeometryMutator {
 
         let degeneratesRemoved = 0;
         let newPositions = [];
+        let newColors = []; // Only if this.colors is not undefined.
         let newFaceIndex = [];  // Map from where a face was to where it is after deletions.
         let newReverseIslands = [];
         for (let faceIndex = 0; faceIndex < faceCount; faceIndex++) {
@@ -1434,6 +1511,9 @@ class BufferGeometryMutator {
                 continue;
             }
             newPositions.push(...this.positions.slice(faceIndex*9, (faceIndex+1)*9));
+            if (this.colors) {
+                newColors.push(...this.colors.slice(faceIndex*9, (faceIndex+1)*9));
+            }
             newReverseIslands.push(this.reverseIslands[faceIndex]);
             newFaceIndex[faceIndex] = faceIndex - degeneratesRemoved;
         }
@@ -1457,6 +1537,9 @@ class BufferGeometryMutator {
         }
 
         this.positions = newPositions;
+        if (this.colors) {
+            this.colors = newColors;
+        }
         this.neighbors = newNeighbors;
         this.reverseIslands = newReverseIslands;
         return degeneratesRemoved;

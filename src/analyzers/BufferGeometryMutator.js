@@ -52,10 +52,10 @@ class BufferGeometryMutator {
         if (!this.findNeighbors()) {
             return null;
         }
-        /*
+
         this.removeDegenerates(this.range(this.positions.length/9));
         this.deleteDegenerates();
-        */
+
         return this;
     }
 
@@ -418,9 +418,9 @@ class BufferGeometryMutator {
         // Map from island id to BufferGeometry.
         let seenIslands = new Map();
         let foundOne = false;
-        let rounded = this;
+        let rounded = this.clone();
         let normal = THREE.Vector3();
-        //rounded.roundToFloat32();
+        rounded.roundToFloat32();
         for (let face = 0; face < rounded.reverseIslands.length; face++) {
             let island = rounded.reverseIslands[face];
             if (!Number.isInteger(island)) {
@@ -430,7 +430,7 @@ class BufferGeometryMutator {
                 seenIslands.set(island, [[], []]);
             }
             let [positions, normals] = seenIslands.get(island);
-            let position = rounded.positionsFromFace(face);
+            let position = rounded.positionFromFace(face);
             for (let offset = 0; offset < 9; offset++) {
                 positions.push(rounded.positions[position+offset]);
             }

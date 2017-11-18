@@ -6,5 +6,6 @@ export { PointerInteractions } from './helpers/PointerInteractions.js';
 export { BufferGeometryAnalyzer } from './analyzers/BufferGeometryAnalyzer.js';
 export { STLBinaryExporter } from './exporters/STLBinaryExporter.js';
 export { ConvexGeometry, ConvexBufferGeometry } from './geometries/ConvexGeometry.js';
-export { ConnectedSTL } from './geometries/ConnectedSTL.js';
+export { BufferGeometryMutator } from './analyzers/BufferGeometryMutator.js';
 export { QuickHull } from './geometries/QuickHull.js';
+export { STLExporter } from './exporters/STLExporter.js';

@@ -4,7 +4,7 @@
  */
 
 import * as THREE from 'three'
-import { ConnectedSTL } from '../geometries/ConnectedSTL.js'
+import { BufferGeometryMutator } from './BufferGeometryMutator'
 
 /**
  * Calculate the key for the "trio" - 3 consecutive numbers in `array` starting from `startIndex`
@@ -123,10 +123,10 @@ var BufferGeometryAnalyzer = {
      */
 
     isolatedGeometries: function ( geometry, precisionPoints=-1 ) {
-        let connectedSTL = new ConnectedSTL().fromBufferGeometry(geometry);
+        let connectedSTL = new BufferGeometryMutator().fromBufferGeometry(geometry);
         let newGeometries = [];
-        for (let newConnectedSTL of connectedSTL.isolate()) {
-            newGeometries.push(newConnectedSTL.bufferGeometry());
+        for (let newBufferGeometryMutator of connectedSTL.isolate()) {
+            newGeometries.push(newBufferGeometryMutator.bufferGeometry());
         }
         return newGeometries;
     },

@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 
-// A ConnectedSTL is similar to a BufferGeometry with
+// A BufferGeometryMutator is similar to a BufferGeometry with
 // additional neighbor information.  The neighbor information
 // maintains which face is connected to which face by which edge.
-class ConnectedSTL {
+class BufferGeometryMutator {
     constructor() {
         // An array of numbers.  Every triple represents a point.
         // Every 3 points is a face.
@@ -28,11 +28,11 @@ class ConnectedSTL {
     }
 
     clone() {
-        let newConnectedSTL = new ConnectedSTL();
-        newConnectedSTL.positions = this.positions.slice(0);
-        newConnectedSTL.neighbors = this.neighbors.slice(0);
-        newConnectedSTL.reverseIslands = this.reverseIslands.slice(0);
-        return newConnectedSTL;
+        let newBufferGeometryMutator = new BufferGeometryMutator();
+        newBufferGeometryMutator.positions = this.positions.slice(0);
+        newBufferGeometryMutator.neighbors = this.neighbors.slice(0);
+        newBufferGeometryMutator.reverseIslands = this.reverseIslands.slice(0);
+        return newBufferGeometryMutator;
     }
 
     range(x) {
@@ -383,7 +383,7 @@ class ConnectedSTL {
         return true;
     }
 
-    // Yield ConnectedSTLs, one per island.
+    // Yield BufferGeometryMutators, one per island.
     *isolate() {
         let seenIslands = new Set();
         let foundOne = false;
@@ -397,15 +397,15 @@ class ConnectedSTL {
         let islands = Array.from(seenIslands);
         for (let islandIndex = 0; islandIndex < islands.length; islandIndex++) {
             // Add a new clone.
-            let newConnectedSTL = this.clone();
+            let newBufferGeometryMutator = this.clone();
             for (let faceIndex = 0; faceIndex < this.positions.length/9; faceIndex++) {
-                let island = newConnectedSTL.reverseIslands[faceIndex];
+                let island = newBufferGeometryMutator.reverseIslands[faceIndex];
                 if (Number.isInteger(island) && island != islands[islandIndex]) {
-                    newConnectedSTL.reverseIslands[faceIndex] = null; // Mark for deletion.
+                    newBufferGeometryMutator.reverseIslands[faceIndex] = null; // Mark for deletion.
                 }
             }
-            newConnectedSTL.deleteDegenerates();
-            yield newConnectedSTL;
+            newBufferGeometryMutator.deleteDegenerates();
+            yield newBufferGeometryMutator;
         }
     }
 
@@ -700,12 +700,12 @@ class ConnectedSTL {
         return true;
     }
 
-    // After splitting a shape, moves the faces from the ConnectedSTL
-    // into two ConnectedSTLs, one for each side.  Returns two
-    // ConnectedSTLs.  The first is the negative side, the second is
+    // After splitting a shape, moves the faces from the BufferGeometryMutator
+    // into two BufferGeometryMutators, one for each side.  Returns two
+    // BufferGeometryMutators.  The first is the negative side, the second is
     // the positive side.  The original STL is unaffected.
     disconnectAtSplit(plane, splitPositions) {
-        let newConnectedSTLs = [this.clone(), this.clone()];
+        let newBufferGeometryMutators = [this.clone(), this.clone()];
         // All faces that are on the split are diconnected from their neighbors.
         let vertices = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
         for (let faceIndex = 0; faceIndex < this.positions.length/9; faceIndex++) {
@@ -721,17 +721,17 @@ class ConnectedSTL {
             }
             if (distances[0] <= 0 && distances[1] <= 0 && distances[2] <= 0) {
                 // All negative or 0 so remove from the positive side.
-                newConnectedSTLs[1].reverseIslands[faceIndex] = null;
+                newBufferGeometryMutators[1].reverseIslands[faceIndex] = null;
             }
             if (distances[0] >= 0 && distances[1] >= 0 && distances[2] >= 0) {
                 // All positive or 0 so remove from the negative side.
-                newConnectedSTLs[0].reverseIslands[faceIndex] = null;
+                newBufferGeometryMutators[0].reverseIslands[faceIndex] = null;
             }
         }
-        for (let newConnectedSTL of newConnectedSTLs) {
-            newConnectedSTL.deleteDegenerates();
+        for (let newBufferGeometryMutator of newBufferGeometryMutators) {
+            newBufferGeometryMutator.deleteDegenerates();
         }
-        return newConnectedSTLs;
+        return newBufferGeometryMutators;
     }
 
     // For each edge, find the edge in the input that leads from its
@@ -1018,22 +1018,22 @@ class ConnectedSTL {
     }
 
     // Given a plane, split along the plane and return two new
-    // ConnectedSTLs, one for each side.  The ConnectedSTLs are mended
+    // BufferGeometryMutators, one for each side.  The BufferGeometryMutators are mended
     // where they were choped.
     chop(plane) {
         let splitPositions = this.splitFaces(plane);
 
-        let newConnectedSTLs = this.disconnectAtSplit(plane, splitPositions);
-        for (let newConnectedSTL of newConnectedSTLs) {
-            let splitEdgesMap = newConnectedSTL.findEdgesInPlane(splitPositions);
+        let newBufferGeometryMutators = this.disconnectAtSplit(plane, splitPositions);
+        for (let newBufferGeometryMutator of newBufferGeometryMutators) {
+            let splitEdgesMap = newBufferGeometryMutator.findEdgesInPlane(splitPositions);
             // Repair each island.
             for (let island of splitEdgesMap.keys()) {
-                newConnectedSTL.fixPlanarHole(splitEdgesMap.get(island));
+                newBufferGeometryMutator.fixPlanarHole(splitEdgesMap.get(island));
             }
             // A split might create multiple, diconnected objects.
-            newConnectedSTL.computeIslands();
+            newBufferGeometryMutator.computeIslands();
         }
-        return newConnectedSTLs;
+        return newBufferGeometryMutators;
     }
 
     // Merge faces where possible.
@@ -1516,4 +1516,4 @@ class ConnectedSTL {
     }
 }
 
-export { ConnectedSTL };
+export { BufferGeometryMutator };

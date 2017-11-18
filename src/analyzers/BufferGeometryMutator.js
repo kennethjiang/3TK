@@ -64,8 +64,6 @@ class BufferGeometryMutator {
         if (!this.findNeighbors()) {
             return null;
         }
-        this.removeDegenerates(this.range(this.positions.length/9));
-        this.deleteDegenerates();
         return this;
     }
 

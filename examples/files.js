@@ -9,6 +9,8 @@ var files = {
     "analyzers": [
         "analyzers_buffergeometry_split",
         "analyzers_buffergeometry_faces",
+        "analyzers_buffergeometrymutator_chop",
+        "analyzers_buffergeometrymutator_chop2",
     ],
     "exporters": [
         "exporters_stl-binary",

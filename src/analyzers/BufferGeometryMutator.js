@@ -462,11 +462,11 @@ class BufferGeometryMutator {
         let newBufferGeometries = [];
         for (let [positions, colors, normals] of seenIslands.values()) {
             let newGeometry = new THREE.BufferGeometry();
-            newGeometry.addAttribute('position', new THREE.BufferAttribute(new Float32Array(positions), 3));
+            newGeometry.addAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
             if (this.colors) {
-                newGeometry.addAttribute('color', new THREE.BufferAttribute(new Float32Array(colors), 3));
+                newGeometry.addAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
             }
-            newGeometry.addAttribute('normal', new THREE.BufferAttribute(new Float32Array(normals), 3));
+            newGeometry.addAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
             newBufferGeometries.push(newGeometry);
         }
         return newBufferGeometries;
@@ -482,11 +482,11 @@ class BufferGeometryMutator {
                 normals.push(normal.x, normal.y, normal.z);
             }
         }
-        newGeometry.addAttribute('position', new THREE.BufferAttribute(new Float32Array(this.positions), 3));
+        newGeometry.addAttribute('position', new THREE.Float32BufferAttribute(this.positions, 3));
         if (this.colors) {
-            newGeometry.addAttribute('color', new THREE.BufferAttribute(new Float32Array(this.colors), 3));
+            newGeometry.addAttribute('color', new THREE.Float32BufferAttribute(this.colors, 3));
         }
-        newGeometry.addAttribute('normal', new THREE.BufferAttribute(new Float32Array(normals), 3));
+        newGeometry.addAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
         return newGeometry;
     }
 

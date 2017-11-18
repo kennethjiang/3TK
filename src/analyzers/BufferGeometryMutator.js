@@ -418,11 +418,9 @@ class BufferGeometryMutator {
         // Map from island id to BufferGeometry.
         let seenIslands = new Map();
         let foundOne = false;
-        let rounded = this.clone();
         let normal = THREE.Vector3();
-        rounded.roundToFloat32();
-        for (let face = 0; face < rounded.reverseIslands.length; face++) {
-            let island = rounded.reverseIslands[face];
+        for (let face = 0; face < this.reverseIslands.length; face++) {
+            let island = this.reverseIslands[face];
             if (!Number.isInteger(island)) {
                 continue;
             }
@@ -430,12 +428,14 @@ class BufferGeometryMutator {
                 seenIslands.set(island, [[], []]);
             }
             let [positions, normals] = seenIslands.get(island);
-            let position = rounded.positionFromFace(face);
+            let position = this.positionFromFace(face);
             for (let offset = 0; offset < 9; offset++) {
-                positions.push(rounded.positions[position+offset]);
+                positions.push(this.positions[position+offset]);
             }
-            normal = rounded.faceNormal(face, normal);
-            normals.push(normal.x, normal.y, normal.z);
+            normal = this.faceNormal(face, normal);
+            for (let i = 0; i < 3; i++) {
+                normals.push(normal.x, normal.y, normal.z);
+            }
         }
         let newBufferGeometries = [];
         for (let [positions, normals] of seenIslands.values()) {
@@ -450,16 +450,14 @@ class BufferGeometryMutator {
     bufferGeometry() {
         let newGeometry = new THREE.BufferGeometry();
         let normals = [];
-        let rounded = this.clone();
-        rounded.roundToFloat32();
-        for (let faceIndex = 0; faceIndex < rounded.positions.length / 9; faceIndex++) {
-            let posIndex = rounded.positionFromFace(faceIndex);
-            let normal = rounded.faceNormal(faceIndex);
+        for (let faceIndex = 0; faceIndex < this.positions.length / 9; faceIndex++) {
+            let posIndex = this.positionFromFace(faceIndex);
+            let normal = this.faceNormal(faceIndex);
             for (let i = 0; i < 3; i++) {
                 normals.push(normal.x, normal.y, normal.z);
             }
         }
-        newGeometry.addAttribute('position', new THREE.BufferAttribute(new Float32Array(rounded.positions), 3));
+        newGeometry.addAttribute('position', new THREE.BufferAttribute(new Float32Array(this.positions), 3));
         newGeometry.addAttribute('normal', new THREE.BufferAttribute(new Float32Array(normals), 3));
         return newGeometry;
     }

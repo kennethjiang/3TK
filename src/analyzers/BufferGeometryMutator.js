@@ -444,12 +444,17 @@ class BufferGeometryMutator {
                 continue;
             }
             if (!seenIslands.has(island)) {
-                seenIslands.set(island, [[], []]);
+                seenIslands.set(island, [[], [], []]);
             }
-            let [positions, normals] = seenIslands.get(island);
+            let [positions, colors, normals] = seenIslands.get(island);
             let position = this.positionFromFace(face);
             for (let offset = 0; offset < 9; offset++) {
                 positions.push(this.positions[position+offset]);
+            }
+            if (this.colors) {
+                for (let offset = 0; offset < 9; offset++) {
+                    colors.push(this.colors[position+offset]);
+                }
             }
             normal = this.faceNormal(face, normal);
             for (let i = 0; i < 3; i++) {
@@ -457,9 +462,12 @@ class BufferGeometryMutator {
             }
         }
         let newBufferGeometries = [];
-        for (let [positions, normals] of seenIslands.values()) {
+        for (let [positions, colors, normals] of seenIslands.values()) {
             let newGeometry = new THREE.BufferGeometry();
             newGeometry.addAttribute('position', new THREE.BufferAttribute(new Float32Array(positions), 3));
+            if (this.colors) {
+                newGeometry.addAttribute('color', new THREE.BufferAttribute(new Float32Array(colors), 3));
+            }
             newGeometry.addAttribute('normal', new THREE.BufferAttribute(new Float32Array(normals), 3));
             newBufferGeometries.push(newGeometry);
         }
@@ -469,9 +477,9 @@ class BufferGeometryMutator {
     bufferGeometry() {
         let newGeometry = new THREE.BufferGeometry();
         let normals = [];
+        let normal = new THREE.Vector3();
         for (let faceIndex = 0; faceIndex < this.positions.length / 9; faceIndex++) {
-            let posIndex = this.positionFromFace(faceIndex);
-            let normal = this.faceNormal(faceIndex);
+            normal = this.faceNormal(faceIndex, normal);
             for (let i = 0; i < 3; i++) {
                 normals.push(normal.x, normal.y, normal.z);
             }

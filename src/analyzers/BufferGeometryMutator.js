@@ -74,11 +74,20 @@ class BufferGeometryMutator {
         return v1 + '_' + v2 + '_' + v3;
     }
 
+    // Convert 3 consecutive positions into a value usable as a key in
+    // a Map.  This doesn't need to be a strong hash, but it needs to
+    // be fast.
+    hashForTrio(startIndex) {
+        let array = this.positions;
+        let [v1, v2, v3] = [array[startIndex], array[startIndex+1], array[startIndex+2]];
+        return v1 + v2 + + v3;
+    }
+
     // Returns a Map of keyForTrio to positions in this.positions.
     vertexPositionMap() {
         let map = new Map();
         for (var posIndex = 0; posIndex < this.positions.length; posIndex += 3) {
-            let key = this.keyForTrio(posIndex);
+            let key = this.hashForTrio(posIndex);
             if (!map.has(key)) {
                 map.set(key, []);
             }
@@ -163,7 +172,7 @@ class BufferGeometryMutator {
     // this.neighbors will be an array with length 3 times the number of faces.
     // this.reverseIslands will be an array with length equal to the number of faces.
     findNeighbors() {
-        var vertexPosMap = this.vertexPositionMap();
+        let vertexPosMap = this.vertexPositionMap();
         const faceCount = this.positions.length / 9;
 
         // Find the island to which this face belongs using the
@@ -226,7 +235,7 @@ class BufferGeometryMutator {
             }
             for (let edgeIndex = 0; edgeIndex < 3; edgeIndex++) {
                 let posIndex = this.positionFromFaceEdge(faceIndex, edgeIndex);
-                let key = this.keyForTrio(posIndex);
+                let key = this.hashForTrio(posIndex);
                 let nextPosition = this.nextPositionInFace(posIndex);
                 for (let newPosIndex of vertexPosMap.get(key)) {
                     if (!this.equalTrios(newPosIndex, posIndex)) {

@@ -1010,7 +1010,6 @@ class BufferGeometryMutator {
                             }
                         }
                     }
-
                 }
                 break;
             }

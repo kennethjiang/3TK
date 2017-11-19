@@ -9,7 +9,7 @@ function STLExporter() {}
 
 STLExporter.prototype = {
 
-	constructor: THREE.STLExporter,
+	constructor: STLExporter,
 
 	parse: ( function () {
 

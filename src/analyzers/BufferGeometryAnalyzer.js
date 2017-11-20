@@ -124,11 +124,7 @@ var BufferGeometryAnalyzer = {
 
     isolatedGeometries: function ( geometry, precisionPoints=-1 ) {
         let connectedSTL = new BufferGeometryMutator().fromBufferGeometry(geometry);
-        let newGeometries = [];
-        for (let newBufferGeometryMutator of connectedSTL.isolate()) {
-            newGeometries.push(newBufferGeometryMutator.bufferGeometry());
-        }
-        return newGeometries;
+        return connectedSTL.isolatedBufferGeometries();
     },
 
     /**

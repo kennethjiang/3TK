@@ -157,7 +157,6 @@ class BufferGeometryMutator {
     // Returns true if the faceIndex (0 to faceCount-1) has two
     // identical points in it.
     isFaceDegenerate(faceIndex) {
-        let facePoints = new Set();
         for (let edgeIndex = 0; edgeIndex < 3; edgeIndex++) {
             let currentPos = this.positionFromFaceEdge(faceIndex, edgeIndex);
             let nextPos = this.nextPositionInFace(currentPos);
@@ -259,26 +258,31 @@ class BufferGeometryMutator {
                 unconnectedEdges.add(posIndex);
             }
         }
-
         // Returns the angle between faces 0 to 2pi.
         // A smaller angle indicates less enclosed space.
         // Assumes that the common edge is posIndex1 to posIndex1+3 and
         // posIndex2 to posIndex2-3.
-        let facesAngle = (posIndex1, posIndex2) => {
-            let normal1 = this.faceNormal(this.faceFromPosition(posIndex1));
-            let normal2 = this.faceNormal(this.faceFromPosition(posIndex2));
-            let commonPoint1 = this.vector3FromPosition(posIndex1);
-            let commonPoint2 = this.vector3FromPosition(this.nextPositionInFace(posIndex1));
-            let edge1 = commonPoint2.clone().sub(commonPoint1);
-            let normalsAngle = normal1.angleTo(normal2); // Between 0 and pi.
-            let facesAngle = Math.PI;
-            if (normal1.clone().cross(normal2).dot(edge1) > 0) {
-                facesAngle -= normalsAngle;
-            } else {
-                facesAngle += normalsAngle;
+        let facesAngle = (() => {
+            let normal1 = new THREE.Vector3();
+            let normal2 = new THREE.Vector3();
+            let commonPoint1 = new THREE.Vector3();
+            let commonPoint2 = new THREE.Vector3();
+            return (posIndex1, posIndex2) => {
+                normal1 = this.faceNormal(this.faceFromPosition(posIndex1), normal1);
+                normal2 = this.faceNormal(this.faceFromPosition(posIndex2), normal2);
+                commonPoint1 = this.vector3FromPosition(posIndex1, commonPoint1);
+                commonPoint2 = this.vector3FromPosition(this.nextPositionInFace(posIndex1), commonPoint2);
+                commonPoint2.sub(commonPoint1); // commonPoint2 is now edge1.
+                let normalsAngle = normal1.angleTo(normal2); // Between 0 and pi.
+                let facesAngle = Math.PI;
+                if (normal1.cross(normal2).dot(commonPoint2) > 0) {
+                    facesAngle -= normalsAngle;
+                } else {
+                    facesAngle += normalsAngle;
+                }
+                return facesAngle;
             }
-            return facesAngle;
-        }
+        })();
 
         // Set the face-edge at posIndex2 to be the neighbor of the
         // face-edge at posIndex1.  This function should also be run
@@ -571,7 +575,7 @@ class BufferGeometryMutator {
 
     faceNormalFromPositions(positions, target) {
         target = target || new THREE.Vector3();
-        return this.faceNormalTriangle.set(...this.vector3sFromPositions(positions, this.faceNormalVector3s)).normal();
+        return this.faceNormalTriangle.set(...this.vector3sFromPositions(positions, this.faceNormalVector3s)).normal(target);
     }
 
     // Returns the unit normal of a triangular face.
@@ -944,6 +948,7 @@ class BufferGeometryMutator {
         });
         // Find an edge on the convex hull of the chop.
         let hullSplitEdge = null;
+        let normal = new THREE.Vector3();
         for (let [splitEdge, [previousSplitEdge, nextSplitEdge]] of splitEdgesMap) {
             if(!Number.isInteger(nextSplitEdge)) {
                 // This edge doesn't have a suitable next edge.
@@ -952,9 +957,10 @@ class BufferGeometryMutator {
             // The face that we will portentially create
             // is nextSplitEdge's next, nextSplitEdge, and
             // splitEdge.
-            let normal = this.faceNormalFromPositions([this.nextPositionInFace(nextSplitEdge),
-                                                       nextSplitEdge,
-                                                       splitEdge]);
+            normal = this.faceNormalFromPositions([this.nextPositionInFace(nextSplitEdge),
+                                                   nextSplitEdge,
+                                                   splitEdge],
+                                                  normal);
             if (normal.length() < 0.5) {
                 // Colinear triangle, no normal.
                 continue;
@@ -992,7 +998,7 @@ class BufferGeometryMutator {
         // replace the third vertex of the new face.
         let maybeInsidePoint = new THREE.Vector3();
         for (let pos of allPoints()) {
-            let maybeInsidePoint = this.vector3FromPosition(pos, maybeInsidePoint);
+            maybeInsidePoint = this.vector3FromPosition(pos, maybeInsidePoint);
             let match = false;
             for (let v of vertices) {
                 if (maybeInsidePoint.equals(v)) {
@@ -1020,15 +1026,18 @@ class BufferGeometryMutator {
     fixPlanarHole(splitEdgesMap) {
         let newVertices = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
         let newColors = [new THREE.Color(), new THREE.Color(), new THREE.Color()];
+        let normal = new THREE.Vector3();
+        let hullNormal = new THREE.Vector3();
         // Loop until all the plane is sealed.
         while (splitEdgesMap.size > 0) {
             let hullSplitEdge = this.findConvexHullSplitEdge(splitEdgesMap);
             if (!Number.isInteger(hullSplitEdge)) {
                 return;
             }
-            let hullNormal = this.faceNormalFromPositions([this.nextPositionInFace(splitEdgesMap.get(hullSplitEdge)[1]),
-                                                           splitEdgesMap.get(hullSplitEdge)[1],
-                                                           hullSplitEdge]);
+            hullNormal = this.faceNormalFromPositions([this.nextPositionInFace(splitEdgesMap.get(hullSplitEdge)[1]),
+                                                       splitEdgesMap.get(hullSplitEdge)[1],
+                                                       hullSplitEdge],
+                                                      hullNormal);
             // Find all the splitEdges of this hole, in both
             // directions in case the shape wasn't originally
             // manifold.  Store them in the forward direction.
@@ -1074,9 +1083,10 @@ class BufferGeometryMutator {
                                                           nextSplitEdge,
                                                           splitEdge],
                                                          newColors);
-                    let normal = this.faceNormalFromPositions([this.nextPositionInFace(nextSplitEdge),
-                                                               nextSplitEdge,
-                                                               splitEdge]);
+                    normal = this.faceNormalFromPositions([this.nextPositionInFace(nextSplitEdge),
+                                                           nextSplitEdge,
+                                                           splitEdge],
+                                                          normal);
                     // Don't compare for == 4 because of floating point
                     // rounding issues.
                     if (normal.distanceToSquared(hullNormal) > 3) {
@@ -1102,11 +1112,8 @@ class BufferGeometryMutator {
                     for (let newUnconnectedEdge of [newPosition, newPosition+3, newPosition+6]) {
                         let connectionCount = 0;
                         for (let otherUnconnectedEdge of splitEdgesMap.keys()) {
-                            let newStart = this.vector3FromPosition(newUnconnectedEdge);
-                            let newEnd = this.vector3FromPosition(this.nextPositionInFace(newUnconnectedEdge));
-                            let otherStart = this.vector3FromPosition(otherUnconnectedEdge);
-                            let otherEnd = this.vector3FromPosition(this.nextPositionInFace(otherUnconnectedEdge));
-                            if (newStart.equals(otherEnd) && newEnd.equals(otherStart)) {
+                            if (this.equalTrios(newUnconnectedEdge, this.nextPositionInFace(otherUnconnectedEdge)) &&
+                                this.equalTrios(this.nextPositionInFace(newUnconnectedEdge), otherUnconnectedEdge)) {
                                 // We can connect this.
                                 // Connect the neighbors that we've just found.
                                 this.neighbors[newUnconnectedEdge/3] = otherUnconnectedEdge/3;
@@ -1357,6 +1364,7 @@ class BufferGeometryMutator {
         let vertices = [[new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()],
                         [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()]];
         let normals = [new THREE.Vector3(), new THREE.Vector3()];
+        let triangle = new THREE.Triangle();
         // Edges which potentially still need to be rotated.
         let edgePositionsDelaunay = new Set();
         for (let i = 0; i < this.positions.length; i+=3) {
@@ -1388,7 +1396,7 @@ class BufferGeometryMutator {
                     continue;
                 }
                 for (let i = 0; i < 2; i++) {
-                    normals[i] = new THREE.Triangle(...vertices[i]).normal(normals[i]);
+                    normals[i] = triangle.set(...vertices[i]).normal(normals[i]);
                 }
                 if (!equalNormals(normals[0], normals[1])) {
                     // We can't move these around because the normals are too different.
@@ -1433,10 +1441,7 @@ class BufferGeometryMutator {
         let a = new THREE.Vector3();
         let b = new THREE.Vector3();
         let c = new THREE.Vector3();
-        let newStart = new THREE.Vector3();
-        let newEnd = new THREE.Vector3();
-        let otherStart = new THREE.Vector3();
-        let otherEnd = new THREE.Vector3();
+        let unconnectedEdgeNormal = new THREE.Vector3();
         while (unconnectedEdges.size > 0) {
             // Find the best new face to add to the object.
             let smallestScore = Infinity;
@@ -1445,7 +1450,8 @@ class BufferGeometryMutator {
                 // First two vertices in the new triangle.
                 a = this.vector3FromPosition(this.nextPositionInFace(unconnectedEdge), a);
                 b = this.vector3FromPosition(unconnectedEdge, b);
-                let unconnectedEdgeNormal = this.faceNormal(this.faceFromPosition(unconnectedEdge));
+                unconnectedEdgeNormal = this.faceNormal(this.faceFromPosition(unconnectedEdge),
+                                                        unconnectedEdgeNormal);
                 // Find all possible triangles connecting to this edge.
                 for (let unconnectedVertex of unconnectedEdges) {
                     for (let cPos of [unconnectedVertex,
@@ -1473,11 +1479,8 @@ class BufferGeometryMutator {
             // Connect all unconnectedEdges that can be connected.
             for (let newUnconnectedEdge of [newPosition, newPosition+3, newPosition+6]) {
                 for (let otherUnconnectedEdge of unconnectedEdges) {
-                    newStart = this.vector3FromPosition(newUnconnectedEdge, newStart);
-                    newEnd = this.vector3FromPosition(this.nextPositionInFace(newUnconnectedEdge), newEnd);
-                    otherStart = this.vector3FromPosition(otherUnconnectedEdge, otherStart);
-                    otherEnd = this.vector3FromPosition(this.nextPositionInFace(otherUnconnectedEdge), otherEnd);
-                    if (newStart.equals(otherEnd) && newEnd.equals(otherStart)) {
+                    if (this.equalTrios(newUnconnectedEdge, this.nextPositionInFace(otherUnconnectedEdge)) &&
+                        this.equalTrios(this.nextPositionInFace(newUnconnectedEdge), otherUnconnectedEdge)) {
                         // We can connect this.
                         this.neighbors[newUnconnectedEdge/3] = otherUnconnectedEdge/3;
                         this.neighbors[otherUnconnectedEdge/3] = newUnconnectedEdge/3;
@@ -1567,6 +1570,7 @@ class BufferGeometryMutator {
     removeDegenerates180Angle(faces) {
         let degeneratesRemoved = 0;
         const zeroVector = new THREE.Vector3(0,0,0);
+        let triangle = new THREE.Triangle();
         for (let faceIndex of faces) {
             if (!Number.isInteger(this.reverseIslands[faceIndex]) ||
                 this.isFaceDegenerate(faceIndex)) {
@@ -1579,7 +1583,7 @@ class BufferGeometryMutator {
             positions[0] = this.positionsFromFace(faceIndex);
             let vertices = [];
             vertices[0] = this.vector3sFromPositions(positions[0]);
-            let normal = new THREE.Triangle(...vertices[0]).normal();
+            let normal = triangle.set(...vertices[0]).normal();
             if (!normal.equals(zeroVector)) {
                 // Nothing to do.
                 continue;

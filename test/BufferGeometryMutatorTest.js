@@ -158,6 +158,11 @@ describe("BufferGeometryMutator", function() {
             testFile("egg", 1);
         });
 
+        it("non-manifold egg with a side sliced off and a hole", function() {
+            this.timeout(0);
+            testFile("egg_chopped", 1);
+        });
+
         it("Big object: Dinosaur Jump", function() {
             if (!process.env.INCLUDE_LARGE_TESTS) {
                 this.skip();

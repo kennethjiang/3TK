@@ -856,7 +856,7 @@ class BufferGeometryMutator {
         for (let newBufferGeometryMutator of newBufferGeometryMutators) {
             newBufferGeometryMutator.deleteDegenerates();
         }
-        return newBufferGeometryMutators;
+        return newBufferGeometryMutators.filter(mutator => mutator.positions.length >= 5); // How many positions to qualify a valid shape?
     }
 
     // For each edge, find the edge in the input that leads from its

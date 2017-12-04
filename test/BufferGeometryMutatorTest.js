@@ -232,5 +232,16 @@ describe("BufferGeometryMutator", function() {
             let newBufferGeometryMutators = mutator.chop(new THREE.Plane(
                 new THREE.Vector3(1,0,0), -((boundingBox.max.x + boundingBox.min.x*3)/4)));
         });
+
+        it("should return 1 object when chopped with a plane outside bounding box", function () {
+            let stl = fs.readFileSync("test/data/crescent.stl", {encoding: "binary"});
+            let geometry = new STLLoader().parse(stl);
+            geometry.computeBoundingBox();
+            let boundingBox = geometry.boundingBox;
+            let mutator = new BufferGeometryMutator().fromBufferGeometry(geometry);
+            let newBufferGeometryMutators = mutator.chop(new THREE.Plane(
+                new THREE.Vector3(1,0,0), -(boundingBox.max.x + boundingBox.min.x*3)));
+            expect(newBufferGeometryMutators.length).to.equal(1);
+        });
     });
 });

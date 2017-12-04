@@ -22,8 +22,8 @@ describe("BufferGeometryMutator", function() {
             // Test that the number of shapes is as expected.
             let stl = fs.readFileSync("test/data/" + filename + ".stl", {encoding: "binary"});
             let geometry = new STLLoader().parse(stl);
-            let connectedSTL = new BufferGeometryMutator().fromBufferGeometry(geometry);
-            let newGeometries = Array.from(connectedSTL.isolate()).map((x) => x.bufferGeometry());
+            let mutator = new BufferGeometryMutator().fromBufferGeometry(geometry);
+            let newGeometries = Array.from(mutator.isolate()).map((x) => x.bufferGeometry());
             expect(newGeometries.length).to.equal(expectedGeometriesCount);
             if (writeShapes) {
                 for (let i = 0; i < newGeometries.length; i++) {
@@ -38,29 +38,29 @@ describe("BufferGeometryMutator", function() {
             // neighbors array is maintained correctly.
             geometry.computeBoundingBox();
             let boundingBox = geometry.boundingBox;
-            let oldFaceCount = connectedSTL.positions.length/9;
-            let splits = connectedSTL.splitFaces(new THREE.Plane(
+            let oldFaceCount = mutator.positions.length/9;
+            let splits = mutator.splitFaces(new THREE.Plane(
                 new THREE.Vector3(1,0,0), -((boundingBox.max.x*2 + boundingBox.min.x)/3)));
             if (writeShapes) {
-                let mesh = new THREE.Mesh(connectedSTL.bufferGeometry());
+                let mesh = new THREE.Mesh(mutator.bufferGeometry());
                 let obj = new THREE.Object3D();
                 obj.add(mesh);
                 fs.writeFileSync(filename + "_split.stl", new Buffer(new STLExporter().parse(obj)), 'ascii');
             }
             expect(splits.size).to.be.greaterThan(0);
-            let newFaceCount = connectedSTL.positions.length/9;
+            let newFaceCount = mutator.positions.length/9;
             // Splitting an edge affects two faces.
             expect(newFaceCount).to.be.greaterThan(oldFaceCount);
-            let oldNeighbors = connectedSTL.neighbors.slice(0);
-            connectedSTL.neighbors = [];
-            connectedSTL.reverseIslands = [];
-            expect(connectedSTL.findNeighbors()).to.be.true;
-            let newNeighbors = connectedSTL.neighbors.slice(0);
+            let oldNeighbors = mutator.neighbors.slice(0);
+            mutator.neighbors = [];
+            mutator.reverseIslands = [];
+            expect(mutator.findNeighbors()).to.be.true;
+            let newNeighbors = mutator.neighbors.slice(0);
             // neighbors array should have be updated correctly during split.
             expect(newNeighbors).to.have.ordered.members(oldNeighbors);
 
             // Spliting should not affect the number of shapes.
-            newGeometries = Array.from(connectedSTL.isolate()).map((x) => x.bufferGeometry());
+            newGeometries = Array.from(mutator.isolate()).map((x) => x.bufferGeometry());
             if (writeShapes) {
                 for (let i = 0; i < newGeometries.length; i++) {
                     let mesh = new THREE.Mesh(newGeometries[i]);
@@ -72,9 +72,9 @@ describe("BufferGeometryMutator", function() {
             expect(newGeometries.length).to.equal(expectedGeometriesCount);
 
             // Merging faces should not affect the number of shapes.
-            connectedSTL.mergeFaces(equalNormals);
+            mutator.mergeFaces(equalNormals);
             if (writeShapes) {
-                let mesh = new THREE.Mesh(connectedSTL.bufferGeometry());
+                let mesh = new THREE.Mesh(mutator.bufferGeometry());
                 let obj = new THREE.Object3D();
                 obj.add(mesh);
                 fs.writeFileSync(filename + "_merged.stl", new Buffer(new STLExporter().parse(obj)), 'ascii');
@@ -82,7 +82,7 @@ describe("BufferGeometryMutator", function() {
 
             expect(newGeometries.length).to.equal(expectedGeometriesCount);
 
-            let newBufferGeometryMutators = connectedSTL.chop(new THREE.Plane(
+            let newBufferGeometryMutators = mutator.chop(new THREE.Plane(
                 new THREE.Vector3(1,0,0), -((boundingBox.max.x + boundingBox.min.x*3)/4)));
             for (let i = 0; i < newBufferGeometryMutators.length; i++) {
                 let newBufferGeometryMutator = newBufferGeometryMutators[i];
@@ -93,7 +93,7 @@ describe("BufferGeometryMutator", function() {
                     let obj = new THREE.Object3D();
                     obj.add(mesh);
                     fs.writeFileSync(filename + "_chop" + i + ".stl", new Buffer(new STLExporter().parse(obj)), 'ascii');
-                    newGeometries = Array.from(connectedSTL.isolate()).map((x) => x.bufferGeometry());
+                    newGeometries = Array.from(mutator.isolate()).map((x) => x.bufferGeometry());
                     for (let j = 0; j < newGeometries.length; j++) {
                         let mesh = new THREE.Mesh(newGeometries[j]);
                         let obj = new THREE.Object3D();
@@ -178,9 +178,9 @@ describe("BufferGeometryMutator", function() {
             this.timeout(0);
             let stl = fs.readFileSync("test/data/egg_with_holes.stl", {encoding: "binary"});
             let geometry = new STLLoader().parse(stl);
-            let connectedSTL = new BufferGeometryMutator().fromBufferGeometry(geometry);
-            connectedSTL.fixHoles();
-            let mesh = new THREE.Mesh(connectedSTL.bufferGeometry());
+            let mutator = new BufferGeometryMutator().fromBufferGeometry(geometry);
+            mutator.fixHoles();
+            let mesh = new THREE.Mesh(mutator.bufferGeometry());
             let obj = new THREE.Object3D();
             obj.add(mesh);
             fs.writeFileSync("egg_with_holes_repaired.stl", new Buffer(new STLExporter().parse(obj)), 'ascii');
@@ -193,11 +193,11 @@ describe("BufferGeometryMutator", function() {
             this.timeout(30000);
             let stl = fs.readFileSync("test/data/DINOSAUR_JUMP.stl", {encoding: "binary"});
             let geometry = new STLLoader().parse(stl);
-            let connectedSTL = new BufferGeometryMutator().fromBufferGeometry(geometry);
-            connectedSTL.mergeFaces(function (v0, v1) {
+            let mutator = new BufferGeometryMutator().fromBufferGeometry(geometry);
+            mutator.mergeFaces(function (v0, v1) {
                 return v0.angleTo(v1) < Math.PI/180*2;
             });
-            let mesh = new THREE.Mesh(connectedSTL.bufferGeometry());
+            let mesh = new THREE.Mesh(mutator.bufferGeometry());
             let obj = new THREE.Object3D();
             obj.add(mesh);
             fs.writeFileSync("DINOSAUR_JUMP_merged.stl", new Buffer(new STLExporter().parse(obj)), 'ascii');
@@ -210,10 +210,10 @@ describe("BufferGeometryMutator", function() {
             this.timeout(30000);
             let stl = fs.readFileSync("test/data/DINOSAUR_JUMP.stl", {encoding: "binary"});
             let geometry = new STLLoader().parse(stl);
-            let connectedSTL = new BufferGeometryMutator().fromBufferGeometry(geometry);
-            connectedSTL.retriangle(
-                Array.from(new Array(connectedSTL.positions.length/9).keys()));
-            let mesh = new THREE.Mesh(connectedSTL.bufferGeometry());
+            let mutator = new BufferGeometryMutator().fromBufferGeometry(geometry);
+            mutator.retriangle(
+                Array.from(new Array(mutator.positions.length/9).keys()));
+            let mesh = new THREE.Mesh(mutator.bufferGeometry());
             let obj = new THREE.Object3D();
             obj.add(mesh);
             fs.writeFileSync("DINOSAUR_JUMP_retriangle.stl", new Buffer(new STLExporter().parse(obj)), 'ascii');
@@ -228,8 +228,8 @@ describe("BufferGeometryMutator", function() {
             let geometry = new STLLoader().parse(stl);
             geometry.computeBoundingBox();
             let boundingBox = geometry.boundingBox;
-            let connectedSTL = new BufferGeometryMutator().fromBufferGeometry(geometry);
-            let newBufferGeometryMutators = connectedSTL.chop(new THREE.Plane(
+            let mutator = new BufferGeometryMutator().fromBufferGeometry(geometry);
+            let newBufferGeometryMutators = mutator.chop(new THREE.Plane(
                 new THREE.Vector3(1,0,0), -((boundingBox.max.x + boundingBox.min.x*3)/4)));
         });
     });

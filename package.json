@@ -32,7 +32,7 @@
     "dist"
   ],
   "dependencies": {
-    "three": "^0.84.0"
+    "three": "^0.90.0"
   },
   "devDependencies": {
     "babel-eslint": "^7.1.1",
